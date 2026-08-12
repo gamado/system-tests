@@ -128,7 +128,7 @@ are pure API-level.
 
 ### 10. Verify Node-Not-Found Error for Non-Existent CR Name ([OCP-65954](https://polarion.engineering.redhat.com/polarion/#/project/OSE/workitem?id=OCP-65954))
 
-Creates a FAR CR with a name that does not match any cluster node. Verifies the controller logs the node-not-found error and does not attempt fencing.
+Creates a FAR CR with a name that does not match any cluster node. Verifies the controller logs the node-not-found error.
 
 - **Operators**: FAR v0.8.0+
 - **Cluster**: Any topology

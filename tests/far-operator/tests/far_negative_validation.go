@@ -95,6 +95,8 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 					farCR := buildMisconfigFAR(farparams.MisconfigTestCRName,
 						farparams.FenceAgentIPMI, nil, nil)
 
+					logBaseline := time.Now()
+
 					By("Creating FAR CR")
 
 					Expect(APIClient.Create(ctx, farCR)).To(Succeed(),
@@ -114,7 +116,7 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 
 					Eventually(func() error {
 						return findMessageInFARControllerLogs(
-							farparams.NodeNotFoundMsg, farparams.LogSearchWindow)
+							farparams.NodeNotFoundMsg, time.Since(logBaseline))
 					}, farparams.LogSearchTimeout, farparams.DefaultPollInterval).Should(Succeed(),
 						"%q should appear in FAR controller logs", farparams.NodeNotFoundMsg)
 				})
