@@ -123,6 +123,39 @@ const (
 	// SharedCredentialsSecretName is the Secret created by the test suite to hold
 	// fence agent credentials in the format expected by SharedSecretName.
 	SharedCredentialsSecretName = "far-test-shared-credentials"
+
+	// NodeNotFoundMsg is the controller log message when a FAR CR name doesn't match any node.
+	NodeNotFoundMsg = "Could not find CR's target node"
+
+	// UnsupportedActionMsg is the webhook error when an unsupported action is configured.
+	UnsupportedActionMsg = "FAR doesn't support any other action than"
+
+	// UnsupportedAgentMsg is the webhook error when a fence agent binary is not in the container.
+	UnsupportedAgentMsg = "unsupported fence agent"
+
+	// InvalidAgentPatternFARMsg is the CRD validation error for FAR CR agent name not matching fence_ prefix.
+	InvalidAgentPatternFARMsg = "spec.agent in body should match"
+
+	// InvalidAgentPatternFARTMsg is the CRD validation error for FARTemplate agent name not matching fence_ prefix.
+	InvalidAgentPatternFARTMsg = "spec.template.spec.agent in body should match"
+
+	// LogSearchWindow is how far back to search controller pod logs for expected messages.
+	LogSearchWindow = 5 * time.Minute
+
+	// LogSearchTimeout is the Eventually timeout when polling controller logs for a message.
+	LogSearchTimeout = 2 * time.Minute
+
+	// MisconfigTestCRName is the FAR CR name used by the invalid-name misconfiguration test.
+	MisconfigTestCRName = "non-existing-node"
+
+	// MisconfigUnsupportedAgent is a fence agent name that passes prefix validation but is not installed.
+	MisconfigUnsupportedAgent = "fence_incorrect"
+
+	// MisconfigInvalidPrefixAgent is a fence agent name that fails the fence_ prefix validation.
+	MisconfigInvalidPrefixAgent = "incorrect_fence"
+
+	// MisconfigFARTName is the FARTemplate name used by misconfiguration tests.
+	MisconfigFARTName = "fenceagentsremediationtemplate-test"
 )
 
 // WorkloadTestImage is the container image used for test workload pods.
