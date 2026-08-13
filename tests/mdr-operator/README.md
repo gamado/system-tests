@@ -105,24 +105,24 @@ by asserting the node name does not exist in the cluster before creating the CR.
 
 ### 7. Verify MDR Conditions With Control-Plane Node ([OCP-66351](https://polarion.engineering.redhat.com/polarion/#/project/OSE/workitem?id=OCP-66351))
 
-Creates an MDR CR named after a random control-plane node. Platform-aware:
-on baremetal (no CPMS), control-plane Machines have no controller owner and
-MDR sets RemediationCannotStartNoControllerOwner. On cloud (AWS/Azure/GCP/vSphere)
-with CPMS, the Machine has a controller owner and MDR sets RemediationStarted.
-Skips on unknown platforms.
+Creates an MDR CR named after a random control-plane node. On baremetal,
+control-plane Machines have no controller owner and MDR sets
+RemediationCannotStartNoControllerOwner. Skipped on cloud platforms where
+CPMS gives control-plane Machines a controller owner, causing MDR to start
+Machine deletion (destructive).
 
 - **Operators**: MDR v0.7.0+
-- **Cluster**: Any topology (MNO or SNO)
+- **Cluster**: Any topology (MNO or SNO), baremetal only
 - **Environment**: Connected or disconnected
-- **Standalone**: `ginkgo --label-filter="mdr" --focus="control-plane node name" ./tests/mdr-operator/...`
-- **Pass criteria**: Baremetal: Processing status=False reason=RemediationCannotStartNoControllerOwner, Succeeded status=False reason=RemediationCannotStartNoControllerOwner. Cloud: Processing reason=RemediationStarted, Succeeded reason=RemediationStarted. MDR controller pod running after test
+- **Standalone**: `ginkgo --label-filter="mdr && platform:baremetal" --focus="control-plane node name" ./tests/mdr-operator/...`
+- **Pass criteria**: Processing status=False reason=RemediationCannotStartNoControllerOwner; Succeeded status=False reason=RemediationCannotStartNoControllerOwner; MDR controller pod running after test
 
 ### 8. Verify PermanentNodeDeletionExpected Condition With Control-Plane Node ([OCP-66317](https://polarion.engineering.redhat.com/polarion/#/project/OSE/workitem?id=OCP-66317))
 
 Creates an MDR CR for a control-plane node and verifies the
-`PermanentNodeDeletionExpected` condition. Uses platform detection to assert
-the correct status, reason, and message: baremetal clusters expect
-status=False/KeepsNodeName, cloud clusters expect status=True/NewNodeName.
+`PermanentNodeDeletionExpected` condition on baremetal: status=False,
+reason=KeepsNodeName, message confirms node name is preserved.
+Skipped on cloud platforms (same reason as test 7).
 
 - **Operators**: MDR v0.7.0+
 - **Cluster**: Any topology (MNO or SNO)
