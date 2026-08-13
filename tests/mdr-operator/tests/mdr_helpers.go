@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -352,6 +353,243 @@ func getMDRCRCondition(nodeName, condType string) (map[string]interface{}, error
 	}
 
 	return nil, fmt.Errorf("condition %s not found on MDR CR %s", condType, nodeName)
+}
+
+// buildMDR builds an unstructured MachineDeletionRemediation CR.
+func buildMDR(name string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": mdrparams.CRDGroup + "/" + mdrparams.CRDVersion,
+			"kind":       "MachineDeletionRemediation",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": medik8sparams.OperatorNs,
+			},
+			"spec": map[string]interface{}{},
+		},
+	}
+}
+
+// buildMDRWithAnnotations builds an unstructured MachineDeletionRemediation CR
+// with optional annotations.
+func buildMDRWithAnnotations(
+	name string, annotations map[string]string,
+) *unstructured.Unstructured {
+	metadata := map[string]interface{}{
+		"name":      name,
+		"namespace": medik8sparams.OperatorNs,
+	}
+
+	if annotations != nil {
+		annotationMap := make(map[string]interface{}, len(annotations))
+		for key, val := range annotations {
+			annotationMap[key] = val
+		}
+
+		metadata["annotations"] = annotationMap
+	}
+
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": mdrparams.CRDGroup + "/" + mdrparams.CRDVersion,
+			"kind":       "MachineDeletionRemediation",
+			"metadata":   metadata,
+			"spec":       map[string]interface{}{},
+		},
+	}
+}
+
+// expectedCondition defines the expected values for a status condition.
+type expectedCondition struct {
+	conditionType string
+	status        string // empty means don't check
+	reason        string
+}
+
+// verifyMDRConditionsByType checks MDR conditions by looking up each expected
+// condition by its type field, not by positional index.
+func verifyMDRConditionsByType(
+	mdrObj *unstructured.Unstructured, expected ...expectedCondition,
+) error {
+	conditions, found, err := unstructured.NestedSlice(
+		mdrObj.Object, "status", "conditions")
+	if err != nil {
+		return fmt.Errorf("failed to get status.conditions: %w", err)
+	}
+
+	if !found || len(conditions) == 0 {
+		return fmt.Errorf("no status.conditions found")
+	}
+
+	for _, exp := range expected {
+		condMap, findErr := findMDRConditionByType(conditions, exp.conditionType)
+		if findErr != nil {
+			return findErr
+		}
+
+		condReason, reasonFound, reasonErr := unstructured.NestedString(condMap, "reason")
+		if reasonErr != nil {
+			return fmt.Errorf("condition %q reason field error: %w",
+				exp.conditionType, reasonErr)
+		}
+
+		if !reasonFound {
+			return fmt.Errorf("condition %q reason field not yet written by controller",
+				exp.conditionType)
+		}
+
+		if condReason != exp.reason {
+			return fmt.Errorf("condition %q reason: expected %q, got %q",
+				exp.conditionType, exp.reason, condReason)
+		}
+
+		if exp.status != "" {
+			condStatus, statusFound, statusErr := unstructured.NestedString(condMap, "status")
+			if statusErr != nil {
+				return fmt.Errorf("condition %q status field error: %w",
+					exp.conditionType, statusErr)
+			}
+
+			if !statusFound {
+				return fmt.Errorf("condition %q status field not yet written by controller",
+					exp.conditionType)
+			}
+
+			if condStatus != exp.status {
+				return fmt.Errorf("condition %q status: expected %q, got %q",
+					exp.conditionType, exp.status, condStatus)
+			}
+		}
+	}
+
+	return nil
+}
+
+// findMDRConditionByType finds a condition map by its type field.
+func findMDRConditionByType(
+	conditions []interface{}, condType string,
+) (map[string]interface{}, error) {
+	for _, cond := range conditions {
+		condMap, ok := cond.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		typeName, _, _ := unstructured.NestedString(condMap, "type")
+		if typeName == condType {
+			return condMap, nil
+		}
+	}
+
+	return nil, fmt.Errorf("condition with type %q not found", condType)
+}
+
+// verifyMDRConditionMessage checks that the message field of a specific
+// condition type matches the expected string.
+func verifyMDRConditionMessage(
+	mdrObj *unstructured.Unstructured, condType, expectedMessage string,
+) error {
+	conditions, found, err := unstructured.NestedSlice(
+		mdrObj.Object, "status", "conditions")
+	if err != nil {
+		return fmt.Errorf("failed to get status.conditions: %w", err)
+	}
+
+	if !found || len(conditions) == 0 {
+		return fmt.Errorf("no status.conditions found")
+	}
+
+	condMap, findErr := findMDRConditionByType(conditions, condType)
+	if findErr != nil {
+		return findErr
+	}
+
+	condMessage, msgFound, msgErr := unstructured.NestedString(condMap, "message")
+	if msgErr != nil {
+		return fmt.Errorf("condition %q message field error: %w", condType, msgErr)
+	}
+
+	if !msgFound {
+		return fmt.Errorf("condition %q message field not yet written by controller", condType)
+	}
+
+	if condMessage != expectedMessage {
+		return fmt.Errorf("condition %q message: expected %q, got %q",
+			condType, expectedMessage, condMessage)
+	}
+
+	return nil
+}
+
+// deferDeleteMDRCR registers cleanup for an MDR CR via DeferCleanup.
+func deferDeleteMDRCR(name string) {
+	DeferCleanup(func() {
+		cleanupMDRCR(name)
+	})
+}
+
+// listControlPlaneNodes returns all master/control-plane nodes, trying both
+// the "master" and "control-plane" role labels for OCP 4.14+ compat.
+func listControlPlaneNodes(ctx context.Context, k8sClient client.Client) (*corev1.NodeList, error) {
+	nodeList := &corev1.NodeList{}
+
+	if err := k8sClient.List(ctx, nodeList,
+		client.MatchingLabels{"node-role.kubernetes.io/master": ""}); err != nil {
+		return nil, fmt.Errorf("failed to list master nodes: %w", err)
+	}
+
+	if len(nodeList.Items) == 0 {
+		if err := k8sClient.List(ctx, nodeList,
+			client.MatchingLabels{"node-role.kubernetes.io/control-plane": ""}); err != nil {
+			return nil, fmt.Errorf("failed to list control-plane nodes: %w", err)
+		}
+	}
+
+	sort.Slice(nodeList.Items, func(i, j int) bool {
+		return nodeList.Items[i].Name < nodeList.Items[j].Name
+	})
+
+	return nodeList, nil
+}
+
+// findMessageInControllerLogs searches MDR controller manager pod logs
+// for the given message within the specified time window.
+func findMessageInControllerLogs(message string, logWindow time.Duration) error {
+	listOptions := metav1.ListOptions{
+		LabelSelector: mdrparams.OperatorControllerPodLabelSelector,
+	}
+
+	mdrPods, listErr := pod.List(APIClient, medik8sparams.OperatorNs, listOptions)
+	if listErr != nil {
+		return fmt.Errorf("failed to list MDR controller pods: %w", listErr)
+	}
+
+	filteredPods := helpers.FilterPodsByDeployment(mdrPods, mdrparams.OperatorDeploymentName)
+	if len(filteredPods) == 0 {
+		return fmt.Errorf("no MDR controller pods found")
+	}
+
+	var lastLogErr error
+
+	for _, mdrPod := range filteredPods {
+		logStr, logErr := mdrPod.GetLog(logWindow, mdrparams.ManagerContainerName)
+		if logErr != nil {
+			lastLogErr = fmt.Errorf("pod %s: %w", mdrPod.Object.Name, logErr)
+
+			continue
+		}
+
+		if strings.Contains(logStr, message) {
+			return nil
+		}
+	}
+
+	if lastLogErr != nil {
+		return fmt.Errorf("message %q not found; last log error: %w", message, lastLogErr)
+	}
+
+	return fmt.Errorf("message %q not found in any MDR controller pod logs (last %s)",
+		message, logWindow)
 }
 
 // logMDRControllerState logs the MDR controller pod states for failure triage.

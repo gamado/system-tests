@@ -67,4 +67,56 @@ const (
 	// ConditionReasonRemediationStarted is the reason set on Processing and Succeeded
 	// conditions when remediation begins.
 	ConditionReasonRemediationStarted = "RemediationStarted"
+
+	// --- Condition test constants (RHWA-1249) ---
+
+	// ConditionReasonStoppedByNHC is the reason set when NHC timed-out annotation is present.
+	ConditionReasonStoppedByNHC = "RemediationStoppedByNHC"
+
+	// ConditionReasonNodeNotFound is the reason set when the target node does not exist.
+	ConditionReasonNodeNotFound = "RemediationCannotStartNodeNotFound"
+
+	// ConditionReasonNoControllerOwner is the reason set when the target node has no controller owner.
+	ConditionReasonNoControllerOwner = "RemediationCannotStartNoControllerOwner"
+
+	// PermanentNodeDeletionExpectedConditionType is the condition indicating node name persistence.
+	PermanentNodeDeletionExpectedConditionType = "PermanentNodeDeletionExpected"
+
+	// ConditionReasonKeepsNodeName is the reason for baremetal clusters where the node name is preserved.
+	ConditionReasonKeepsNodeName = "MachineDeletionOnBareMetalProviderKeepsNodeName"
+
+	// ConditionReasonNewNodeName is the reason for cloud clusters where the node gets a new name.
+	ConditionReasonNewNodeName = "MachineDeletionOnCloudProviderCausesNewNodeName"
+
+	// ConditionMessageKeepsNodeName is the expected message for baremetal PermanentNodeDeletionExpected.
+	ConditionMessageKeepsNodeName = "Machine will be deleted and the unhealthy node replaced. " +
+		"This is a BareMetal cluster provider: the new node is NOT expected to have a new name"
+
+	// ConditionMessageNewNodeName is the expected message for cloud PermanentNodeDeletionExpected.
+	ConditionMessageNewNodeName = "Machine will be deleted and the unhealthy node replaced. " +
+		"This is a Cloud cluster provider: the new node is expected to have a new name"
+
+	// ConditionStatusFalse is the status value "False" for condition checks.
+	ConditionStatusFalse = "False"
+
+	// ConditionStatusTrue is the status value "True" for condition checks.
+	ConditionStatusTrue = "True"
+
+	// NHCTimedOutAnnotationKey is the annotation that signals NHC timed out.
+	NHCTimedOutAnnotationKey = "remediation.medik8s.io/nhc-timed-out"
+
+	// NHCTimedOutAnnotationValue is a valid RFC3339 timestamp for the annotation.
+	NHCTimedOutAnnotationValue = "2006-01-02T15:04:05Z07:00"
+
+	// MDRRemStoppedLogMsg is the log message emitted when MDR stops due to NHC timeout.
+	MDRRemStoppedLogMsg = "NHC time out annotation found, stopping remediation"
+
+	// MDRConditionTestName is the MDR CR name for the NHC timed-out condition test.
+	MDRConditionTestName = "mdr-test-timeout-annotation"
+
+	// MDRNonExistentNodeTestName is the MDR CR name for the non-existent node test.
+	MDRNonExistentNodeTestName = "non-existent-node"
+
+	// ControllerLogWindow is the time window for searching controller logs.
+	ControllerLogWindow = 5 * time.Minute
 )
