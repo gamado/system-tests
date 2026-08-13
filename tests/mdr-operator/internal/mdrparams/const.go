@@ -89,11 +89,11 @@ const (
 	ConditionReasonNewNodeName = "MachineDeletionOnCloudProviderCausesNewNodeName"
 
 	// ConditionMessageKeepsNodeName is the expected message for baremetal PermanentNodeDeletionExpected.
-	ConditionMessageKeepsNodeName = "Machine will be deleted and the unhealthy node replaced. " +
+	ConditionMessageKeepsNodeName = "Machine will be deleted as part of remediation. " +
 		"This is a BareMetal cluster provider: the new node is NOT expected to have a new name"
 
 	// ConditionMessageNewNodeName is the expected message for cloud PermanentNodeDeletionExpected.
-	ConditionMessageNewNodeName = "Machine will be deleted and the unhealthy node replaced. " +
+	ConditionMessageNewNodeName = "Machine will be deleted as part of remediation. " +
 		"This is a Cloud cluster provider: the new node is expected to have a new name"
 
 	// ConditionStatusFalse is the status value "False" for condition checks.

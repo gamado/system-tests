@@ -177,9 +177,19 @@ var _ = Describe(
 		})
 
 		Context("when MDR targets a control-plane node", func() {
-			var controlPlaneNodeName string
+			var (
+				controlPlaneNodeName string
+				platform             configv1.PlatformType
+			)
 
 			BeforeAll(func() {
+				By("Detecting cluster platform")
+
+				var platformErr error
+
+				platform, _, platformErr = helpers.DetectPlatform(context.TODO(), APIClient)
+				Expect(platformErr).ToNot(HaveOccurred(), "Failed to detect cluster platform")
+
 				By("Selecting a random control-plane node")
 
 				cpNodes, err := listControlPlaneNodes(context.TODO(), APIClient)
@@ -187,7 +197,8 @@ var _ = Describe(
 				Expect(cpNodes.Items).ToNot(BeEmpty(), "No control-plane nodes found")
 
 				controlPlaneNodeName = cpNodes.Items[rand.Intn(len(cpNodes.Items))].Name
-				GinkgoWriter.Printf("Selected control-plane node: %s\n", controlPlaneNodeName)
+				GinkgoWriter.Printf("Selected control-plane node: %s (platform: %s)\n",
+					controlPlaneNodeName, platform)
 			})
 
 			AfterEach(func() {
@@ -211,7 +222,35 @@ var _ = Describe(
 
 					deferDeleteMDRCR(controlPlaneNodeName)
 
-					By("Waiting for Processing and Succeeded conditions to reflect no-controller-owner state")
+					var expectedProcessing, expectedSucceeded expectedCondition
+
+					switch platform {
+					case configv1.BareMetalPlatformType, configv1.NonePlatformType:
+						expectedProcessing = expectedCondition{
+							conditionType: mdrparams.ProcessingConditionType,
+							status:        mdrparams.ConditionStatusFalse,
+							reason:        mdrparams.ConditionReasonNoControllerOwner,
+						}
+						expectedSucceeded = expectedCondition{
+							conditionType: mdrparams.SucceededConditionType,
+							status:        mdrparams.ConditionStatusFalse,
+							reason:        mdrparams.ConditionReasonNoControllerOwner,
+						}
+					default:
+						expectedProcessing = expectedCondition{
+							conditionType: mdrparams.ProcessingConditionType,
+							reason:        mdrparams.ConditionReasonRemediationStarted,
+						}
+						expectedSucceeded = expectedCondition{
+							conditionType: mdrparams.SucceededConditionType,
+							reason:        mdrparams.ConditionReasonRemediationStarted,
+						}
+					}
+
+					GinkgoWriter.Printf("Platform %s: expecting Processing reason=%s, Succeeded reason=%s\n",
+						platform, expectedProcessing.reason, expectedSucceeded.reason)
+
+					By("Waiting for Processing and Succeeded conditions")
 
 					Eventually(func() error {
 						liveMDR := &unstructured.Unstructured{}
@@ -228,19 +267,9 @@ var _ = Describe(
 						}
 
 						return verifyMDRConditionsByType(liveMDR,
-							expectedCondition{
-								conditionType: mdrparams.ProcessingConditionType,
-								status:        mdrparams.ConditionStatusFalse,
-								reason:        mdrparams.ConditionReasonNoControllerOwner,
-							},
-							expectedCondition{
-								conditionType: mdrparams.SucceededConditionType,
-								status:        mdrparams.ConditionStatusFalse,
-								reason:        mdrparams.ConditionReasonNoControllerOwner,
-							},
-						)
+							expectedProcessing, expectedSucceeded)
 					}, medik8sparams.DefaultTimeout, mdrparams.DefaultPollInterval).Should(Succeed(),
-						"MDR conditions should reflect no-controller-owner state")
+						"MDR conditions should match expected state for platform %s", platform)
 				})
 
 			It("Verify PermanentNodeDeletionExpected condition with control-plane node",
