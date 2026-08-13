@@ -97,10 +97,12 @@ var _ = Describe(
 						return verifyMDRConditionsByType(liveMDR,
 							expectedCondition{
 								conditionType: mdrparams.ProcessingConditionType,
+								status:        mdrparams.ConditionStatusFalse,
 								reason:        mdrparams.ConditionReasonStoppedByNHC,
 							},
 							expectedCondition{
 								conditionType: mdrparams.SucceededConditionType,
+								status:        mdrparams.ConditionStatusFalse,
 								reason:        mdrparams.ConditionReasonStoppedByNHC,
 							},
 						)
@@ -199,6 +201,10 @@ var _ = Describe(
 				controlPlaneNodeName = cpNodes.Items[rand.Intn(len(cpNodes.Items))].Name
 				GinkgoWriter.Printf("Selected control-plane node: %s (platform: %s)\n",
 					controlPlaneNodeName, platform)
+
+				DeferCleanup(func() {
+					cleanupMDRCR(controlPlaneNodeName)
+				})
 			})
 
 			AfterEach(func() {
@@ -220,10 +226,11 @@ var _ = Describe(
 					Expect(err).ToNot(HaveOccurred(),
 						"Failed to create MDR for control-plane node %s", controlPlaneNodeName)
 
-					deferDeleteMDRCR(controlPlaneNodeName)
-
 					var expectedProcessing, expectedSucceeded expectedCondition
 
+					// On cloud with CPMS, control-plane Machines have a controller owner,
+					// so MDR proceeds to RemediationStarted. The CR is cleaned up in
+					// AfterEach before Machine deletion progresses.
 					switch platform {
 					case configv1.BareMetalPlatformType, configv1.NonePlatformType:
 						expectedProcessing = expectedCondition{
@@ -236,7 +243,8 @@ var _ = Describe(
 							status:        mdrparams.ConditionStatusFalse,
 							reason:        mdrparams.ConditionReasonNoControllerOwner,
 						}
-					default:
+					case configv1.AWSPlatformType, configv1.AzurePlatformType,
+						configv1.GCPPlatformType, configv1.VSpherePlatformType:
 						expectedProcessing = expectedCondition{
 							conditionType: mdrparams.ProcessingConditionType,
 							reason:        mdrparams.ConditionReasonRemediationStarted,
@@ -245,6 +253,9 @@ var _ = Describe(
 							conditionType: mdrparams.SucceededConditionType,
 							reason:        mdrparams.ConditionReasonRemediationStarted,
 						}
+					default:
+						Skip(fmt.Sprintf("Skipping: unknown platform %s -- "+
+							"cannot determine expected control-plane remediation behavior", platform))
 					}
 
 					GinkgoWriter.Printf("Platform %s: expecting Processing reason=%s, Succeeded reason=%s\n",
@@ -285,13 +296,6 @@ var _ = Describe(
 					Expect(err).ToNot(HaveOccurred(),
 						"Failed to create MDR for control-plane node %s", controlPlaneNodeName)
 
-					deferDeleteMDRCR(controlPlaneNodeName)
-
-					By("Detecting cluster platform for expected condition values")
-
-					platform, _, platformErr := helpers.DetectPlatform(context.TODO(), APIClient)
-					Expect(platformErr).ToNot(HaveOccurred(), "Failed to detect cluster platform")
-
 					var expectedStatus, expectedReason, expectedMessage string
 
 					switch platform {
@@ -299,10 +303,14 @@ var _ = Describe(
 						expectedStatus = mdrparams.ConditionStatusFalse
 						expectedReason = mdrparams.ConditionReasonKeepsNodeName
 						expectedMessage = mdrparams.ConditionMessageKeepsNodeName
-					default:
+					case configv1.AWSPlatformType, configv1.AzurePlatformType,
+						configv1.GCPPlatformType, configv1.VSpherePlatformType:
 						expectedStatus = mdrparams.ConditionStatusTrue
 						expectedReason = mdrparams.ConditionReasonNewNodeName
 						expectedMessage = mdrparams.ConditionMessageNewNodeName
+					default:
+						Skip(fmt.Sprintf("Skipping: unknown platform %s -- "+
+							"cannot determine expected PermanentNodeDeletionExpected values", platform))
 					}
 
 					GinkgoWriter.Printf("Platform %s: expecting PermanentNodeDeletionExpected "+
@@ -324,20 +332,14 @@ var _ = Describe(
 							return getErr
 						}
 
-						verifyErr := verifyMDRConditionsByType(liveMDR,
+						return verifyMDRConditionsByType(liveMDR,
 							expectedCondition{
 								conditionType: mdrparams.PermanentNodeDeletionExpectedConditionType,
 								status:        expectedStatus,
 								reason:        expectedReason,
+								message:       expectedMessage,
 							},
 						)
-						if verifyErr != nil {
-							return verifyErr
-						}
-
-						return verifyMDRConditionMessage(liveMDR,
-							mdrparams.PermanentNodeDeletionExpectedConditionType,
-							expectedMessage)
 					}, medik8sparams.DefaultTimeout, mdrparams.DefaultPollInterval).Should(Succeed(),
 						"PermanentNodeDeletionExpected condition should match platform %s expectations",
 						platform)

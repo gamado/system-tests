@@ -105,8 +105,9 @@ const (
 	// NHCTimedOutAnnotationKey is the annotation that signals NHC timed out.
 	NHCTimedOutAnnotationKey = "remediation.medik8s.io/nhc-timed-out"
 
-	// NHCTimedOutAnnotationValue is a valid RFC3339 timestamp for the annotation.
-	NHCTimedOutAnnotationValue = "2006-01-02T15:04:05Z07:00"
+	// NHCTimedOutAnnotationValue is an RFC3339 timestamp for the annotation.
+	// The MDR controller checks only for key presence, not value format.
+	NHCTimedOutAnnotationValue = "2024-01-01T00:00:00Z"
 
 	// MDRRemStoppedLogMsg is the log message emitted when MDR stops due to NHC timeout.
 	MDRRemStoppedLogMsg = "NHC time out annotation found, stopping remediation"

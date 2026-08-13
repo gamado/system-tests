@@ -404,6 +404,7 @@ type expectedCondition struct {
 	conditionType string
 	status        string // empty means don't check
 	reason        string
+	message       string // empty means don't check
 }
 
 // verifyMDRConditionsByType checks MDR conditions by looking up each expected
@@ -460,6 +461,24 @@ func verifyMDRConditionsByType(
 					exp.conditionType, exp.status, condStatus)
 			}
 		}
+
+		if exp.message != "" {
+			condMessage, msgFound, msgErr := unstructured.NestedString(condMap, "message")
+			if msgErr != nil {
+				return fmt.Errorf("condition %q message field error: %w",
+					exp.conditionType, msgErr)
+			}
+
+			if !msgFound {
+				return fmt.Errorf("condition %q message field not yet written by controller",
+					exp.conditionType)
+			}
+
+			if condMessage != exp.message {
+				return fmt.Errorf("condition %q message: expected %q, got %q",
+					exp.conditionType, exp.message, condMessage)
+			}
+		}
 	}
 
 	return nil
@@ -482,43 +501,6 @@ func findMDRConditionByType(
 	}
 
 	return nil, fmt.Errorf("condition with type %q not found", condType)
-}
-
-// verifyMDRConditionMessage checks that the message field of a specific
-// condition type matches the expected string.
-func verifyMDRConditionMessage(
-	mdrObj *unstructured.Unstructured, condType, expectedMessage string,
-) error {
-	conditions, found, err := unstructured.NestedSlice(
-		mdrObj.Object, "status", "conditions")
-	if err != nil {
-		return fmt.Errorf("failed to get status.conditions: %w", err)
-	}
-
-	if !found || len(conditions) == 0 {
-		return fmt.Errorf("no status.conditions found")
-	}
-
-	condMap, findErr := findMDRConditionByType(conditions, condType)
-	if findErr != nil {
-		return findErr
-	}
-
-	condMessage, msgFound, msgErr := unstructured.NestedString(condMap, "message")
-	if msgErr != nil {
-		return fmt.Errorf("condition %q message field error: %w", condType, msgErr)
-	}
-
-	if !msgFound {
-		return fmt.Errorf("condition %q message field not yet written by controller", condType)
-	}
-
-	if condMessage != expectedMessage {
-		return fmt.Errorf("condition %q message: expected %q, got %q",
-			condType, expectedMessage, condMessage)
-	}
-
-	return nil
 }
 
 // deferDeleteMDRCR registers cleanup for an MDR CR via DeferCleanup.
