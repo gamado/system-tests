@@ -24,7 +24,7 @@ const (
 	// CSVNamePattern is the substring used to match the MDR operator ClusterServiceVersion by name.
 	CSVNamePattern = "machine-deletion-remediation"
 
-	// Remediation test constants (RHWA-1248).
+	// Remediation test constants (RHWA-1248)
 
 	// NHCCRDName is the CRD name for NodeHealthCheck, used to detect if NHC is installed.
 	NHCCRDName = "nodehealthchecks.remediation.medik8s.io"
@@ -68,7 +68,7 @@ const (
 	// conditions when remediation begins.
 	ConditionReasonRemediationStarted = "RemediationStarted"
 
-	// Condition test constants (RHWA-1249).
+	// Condition test constants (RHWA-1249)
 
 	// ConditionReasonStoppedByNHC is the reason set when NHC timed-out annotation is present.
 	ConditionReasonStoppedByNHC = "RemediationStoppedByNHC"

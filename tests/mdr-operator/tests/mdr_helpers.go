@@ -113,7 +113,7 @@ func isNHCCRDInstalled() bool {
 	crd := &apiextensionsv1.CustomResourceDefinition{}
 
 	err := APIClient.Get(
-		context.TODO(),
+		context.Background(),
 		types.NamespacedName{Name: mdrparams.NHCCRDName},
 		crd,
 	)
@@ -200,19 +200,19 @@ func deleteRemediationCR(
 // cleanupNHCCR safely deletes a NodeHealthCheck CR by name.
 func cleanupNHCCR(name string) {
 	deleteRemediationCR(
-		context.TODO(), APIClient, nhcGVK, name)
+		context.Background(), APIClient, nhcGVK, name)
 }
 
 // cleanupMDRT safely deletes a MachineDeletionRemediationTemplate CR by name.
 func cleanupMDRT(name string) {
 	deleteRemediationCR(
-		context.TODO(), APIClient, mdrtGVK, name)
+		context.Background(), APIClient, mdrtGVK, name)
 }
 
 // cleanupMDRCR safely deletes a MachineDeletionRemediation CR by name.
 func cleanupMDRCR(name string) {
 	deleteRemediationCR(
-		context.TODO(), APIClient, mdrGVK, name)
+		context.Background(), APIClient, mdrGVK, name)
 }
 
 // waitForMDRRemediationComplete polls until MDR remediation finishes.
@@ -329,7 +329,7 @@ func getMDRCRCondition(nodeName, condType string) (map[string]interface{}, error
 	mdrObj := &unstructured.Unstructured{}
 	mdrObj.SetGroupVersionKind(mdrGVK)
 
-	if err := APIClient.Get(context.TODO(), types.NamespacedName{
+	if err := APIClient.Get(context.Background(), types.NamespacedName{
 		Name:      nodeName,
 		Namespace: medik8sparams.OperatorNs,
 	}, mdrObj); err != nil {

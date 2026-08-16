@@ -72,7 +72,7 @@ var _ = Describe(
 							mdrparams.NHCTimedOutAnnotationKey: mdrparams.NHCTimedOutAnnotationValue,
 						})
 
-					err := APIClient.Create(context.TODO(), mdrCR)
+					err := APIClient.Create(context.Background(), mdrCR)
 					Expect(err).ToNot(HaveOccurred(),
 						"Failed to create MDR with nhc-timed-out annotation")
 
@@ -84,7 +84,7 @@ var _ = Describe(
 						liveMDR := &unstructured.Unstructured{}
 						liveMDR.SetGroupVersionKind(mdrGVK)
 
-						getErr := APIClient.Get(context.TODO(),
+						getErr := APIClient.Get(context.Background(),
 							client.ObjectKey{
 								Name:      mdrparams.MDRConditionTestName,
 								Namespace: medik8sparams.OperatorNs,
@@ -128,7 +128,7 @@ var _ = Describe(
 					By("Verifying test node name does not exist in the cluster")
 
 					nodeObj := &corev1.Node{}
-					nodeErr := APIClient.Get(context.TODO(),
+					nodeErr := APIClient.Get(context.Background(),
 						client.ObjectKey{Name: mdrparams.MDRNonExistentNodeTestName},
 						nodeObj)
 					Expect(k8serrors.IsNotFound(nodeErr)).To(BeTrue(),
@@ -139,7 +139,7 @@ var _ = Describe(
 
 					mdrCR := buildMDR(mdrparams.MDRNonExistentNodeTestName)
 
-					err := APIClient.Create(context.TODO(), mdrCR)
+					err := APIClient.Create(context.Background(), mdrCR)
 					Expect(err).ToNot(HaveOccurred(),
 						"Failed to create MDR with non-existent node name")
 
@@ -151,7 +151,7 @@ var _ = Describe(
 						liveMDR := &unstructured.Unstructured{}
 						liveMDR.SetGroupVersionKind(mdrGVK)
 
-						getErr := APIClient.Get(context.TODO(),
+						getErr := APIClient.Get(context.Background(),
 							client.ObjectKey{
 								Name:      mdrparams.MDRNonExistentNodeTestName,
 								Namespace: medik8sparams.OperatorNs,
@@ -189,7 +189,7 @@ var _ = Describe(
 
 				var platformErr error
 
-				platform, _, platformErr = helpers.DetectPlatform(context.TODO(), APIClient)
+				platform, _, platformErr = helpers.DetectPlatform(context.Background(), APIClient)
 				Expect(platformErr).ToNot(HaveOccurred(), "Failed to detect cluster platform")
 
 				switch platform {
@@ -203,12 +203,16 @@ var _ = Describe(
 
 				By("Selecting a random control-plane node")
 
-				cpNodes, err := listControlPlaneNodes(context.TODO(), APIClient)
+				cpNodes, err := listControlPlaneNodes(context.Background(), APIClient)
 				Expect(err).ToNot(HaveOccurred(), "Failed to list control-plane nodes")
 				Expect(cpNodes.Items).ToNot(BeEmpty(), "No control-plane nodes found")
 
 				controlPlaneNodeName = cpNodes.Items[rand.Intn(len(cpNodes.Items))].Name
 				GinkgoWriter.Printf("Selected control-plane node: %s\n", controlPlaneNodeName)
+
+				By("Pre-cleaning stale control-plane MDR CR from previous runs")
+
+				cleanupMDRCR(controlPlaneNodeName)
 
 				DeferCleanup(func() {
 					cleanupMDRCR(controlPlaneNodeName)
@@ -230,7 +234,7 @@ var _ = Describe(
 
 					mdrCR := buildMDR(controlPlaneNodeName)
 
-					err := APIClient.Create(context.TODO(), mdrCR)
+					err := APIClient.Create(context.Background(), mdrCR)
 					Expect(err).ToNot(HaveOccurred(),
 						"Failed to create MDR for control-plane node %s", controlPlaneNodeName)
 
@@ -240,7 +244,7 @@ var _ = Describe(
 						liveMDR := &unstructured.Unstructured{}
 						liveMDR.SetGroupVersionKind(mdrGVK)
 
-						getErr := APIClient.Get(context.TODO(),
+						getErr := APIClient.Get(context.Background(),
 							client.ObjectKey{
 								Name:      controlPlaneNodeName,
 								Namespace: medik8sparams.OperatorNs,
@@ -275,7 +279,7 @@ var _ = Describe(
 
 					mdrCR := buildMDR(controlPlaneNodeName)
 
-					err := APIClient.Create(context.TODO(), mdrCR)
+					err := APIClient.Create(context.Background(), mdrCR)
 					Expect(err).ToNot(HaveOccurred(),
 						"Failed to create MDR for control-plane node %s", controlPlaneNodeName)
 
@@ -289,7 +293,7 @@ var _ = Describe(
 						liveMDR := &unstructured.Unstructured{}
 						liveMDR.SetGroupVersionKind(mdrGVK)
 
-						getErr := APIClient.Get(context.TODO(),
+						getErr := APIClient.Get(context.Background(),
 							client.ObjectKey{
 								Name:      controlPlaneNodeName,
 								Namespace: medik8sparams.OperatorNs,
