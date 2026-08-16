@@ -76,7 +76,7 @@ const (
 	// FARConditionTimeout is how long to wait for a FAR CR condition to appear.
 	FARConditionTimeout = 2 * time.Minute
 
-	// RemediationCRDeletionTimeout is how long to wait for a FAR/FART CR to be fully deleted.
+	// RemediationCRDeletionTimeout is how long to wait for a FAR/FARTemplate CR to be fully deleted.
 	RemediationCRDeletionTimeout = 2 * time.Minute
 
 	// ControllerLeaseName is the FAR leader election lease name (LeaderElectionID in cmd/main.go).
@@ -108,11 +108,11 @@ const (
 	// WorkloadPodReadyTimeout is how long to wait for a test workload pod to reach Running.
 	WorkloadPodReadyTimeout = 2 * time.Minute
 
-	// FARCRRetryCount is the retry count for FAR/FART CR spec (matches upstream default).
+	// FARCRRetryCount is the retry count for FAR/FARTemplate CR spec (matches upstream default).
 	FARCRRetryCount = 10
-	// FARCRRetryInterval is the retry interval for FAR/FART CR spec.
+	// FARCRRetryInterval is the retry interval for FAR/FARTemplate CR spec.
 	FARCRRetryInterval = "20s"
-	// FARCRTimeout is the fence agent command timeout for FAR/FART CR spec.
+	// FARCRTimeout is the fence agent command timeout for FAR/FARTemplate CR spec.
 	FARCRTimeout = "60s"
 	// FARCRRemediationStrategy is the default remediation strategy for FAR CRs.
 	FARCRRemediationStrategy = "OutOfServiceTaint"
@@ -125,7 +125,11 @@ const (
 	SharedCredentialsSecretName = "far-test-shared-credentials"
 
 	// NodeNotFoundMsg is the controller log message when a FAR CR name doesn't match any node.
-	NodeNotFoundMsg = "Could not find CR's target node"
+	// Current source uses this message; older Konflux builds used NodeNotFoundMsgLegacy.
+	NodeNotFoundMsg = "couldn't find node matching remediation"
+
+	// NodeNotFoundMsgLegacy is the old controller log message for node-not-found (pre-v0.9).
+	NodeNotFoundMsgLegacy = "Could not find CR's target node"
 
 	// UnsupportedActionMsg is the webhook error when an unsupported action is configured.
 	UnsupportedActionMsg = "FAR doesn't support any other action than"
@@ -136,8 +140,8 @@ const (
 	// InvalidAgentPatternFARMsg is the CRD validation error for FAR CR agent name not matching fence_ prefix.
 	InvalidAgentPatternFARMsg = "spec.agent in body should match"
 
-	// InvalidAgentPatternFARTMsg is the CRD validation error for FARTemplate agent name not matching fence_ prefix.
-	InvalidAgentPatternFARTMsg = "spec.template.spec.agent in body should match"
+	// InvalidAgentPatternFARTemplateMsg is the CRD validation error for FARTemplate agent name not matching fence_ prefix.
+	InvalidAgentPatternFARTemplateMsg = "spec.template.spec.agent in body should match"
 
 	// LogSearchWindow is how far back to search controller pod logs for expected messages.
 	LogSearchWindow = 5 * time.Minute
@@ -154,8 +158,8 @@ const (
 	// MisconfigInvalidPrefixAgent is a fence agent name that fails the fence_ prefix validation.
 	MisconfigInvalidPrefixAgent = "incorrect_fence"
 
-	// MisconfigFARTName is the FARTemplate name used by misconfiguration tests.
-	MisconfigFARTName = "fenceagentsremediationtemplate-test"
+	// MisconfigFARTemplateName is the FARTemplate name used by misconfiguration tests.
+	MisconfigFARTemplateName = "fenceagentsremediationtemplate-test"
 )
 
 // WorkloadTestImage is the container image used for test workload pods.

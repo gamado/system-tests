@@ -72,17 +72,17 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 
 			cleanupFARCR(farparams.MisconfigTestCRName)
 			cleanupFARCR(workerNode)
-			cleanupFARTCR(farparams.MisconfigFARTName)
-		})
+			cleanupFARTemplateCR(farparams.MisconfigFARTemplateName)
 
-		AfterEach(func() {
-			cleanupFARCR(farparams.MisconfigTestCRName)
+			DeferCleanup(func() {
+				cleanupFARCR(farparams.MisconfigTestCRName)
 
-			if workerNode != "" {
-				cleanupFARCR(workerNode)
-			}
+				if workerNode != "" {
+					cleanupFARCR(workerNode)
+				}
 
-			cleanupFARTCR(farparams.MisconfigFARTName)
+				cleanupFARTemplateCR(farparams.MisconfigFARTemplateName)
+			})
 		})
 
 		Context("controller log messages", func() {
@@ -115,12 +115,22 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 					By("Waiting for node-not-found message in FAR controller logs")
 
 					Eventually(func() error {
-						return findMessageInFARControllerLogs(
-							farparams.NodeNotFoundMsg, time.Since(logBaseline))
-					}, farparams.LogSearchTimeout, farparams.DefaultPollInterval).Should(Succeed(),
-						"%q should appear in FAR controller logs", farparams.NodeNotFoundMsg)
-				})
+						logWindow := time.Since(logBaseline)
 
+						if err := findMessageInFARControllerLogs(
+							farparams.NodeNotFoundMsg, logWindow); err == nil {
+							return nil
+						}
+
+						return findMessageInFARControllerLogs(
+							farparams.NodeNotFoundMsgLegacy, logWindow)
+					}, farparams.LogSearchTimeout, farparams.DefaultPollInterval).Should(Succeed(),
+						"FAR controller logs should contain %q or %q",
+						farparams.NodeNotFoundMsg, farparams.NodeNotFoundMsgLegacy)
+				})
+		})
+
+		Context("webhook rejection", func() {
 			It("should reject FAR CR with unsupported action",
 				reportxml.ID("66090"),
 				Label(labels.ComponentWebhook),
@@ -138,10 +148,8 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 					Expect(err).To(MatchError(ContainSubstring(farparams.UnsupportedActionMsg)),
 						"FAR CR with unsupported action should be rejected by webhook")
 				})
-		})
 
-		Context("webhook rejection", func() {
-			It("should reject FAR CR with invalid fence agent name",
+			It("should reject FAR CR with unsupported fence agent name",
 				reportxml.ID("71219"),
 				Label(labels.ComponentWebhook),
 				func() {
@@ -153,37 +161,47 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 					err := APIClient.Create(ctx, farCR)
 					Expect(err).To(MatchError(ContainSubstring(farparams.UnsupportedAgentMsg)),
 						"FAR CR with unsupported fence agent should be rejected by webhook")
+				})
 
+			It("should reject FAR CR with agent name missing fence_ prefix",
+				reportxml.ID("71219"),
+				Label(labels.ComponentWebhook),
+				func() {
 					By("Creating FAR CR with agent name missing fence_ prefix (incorrect_fence)")
 
-					farCR2 := buildMisconfigFAR(workerNode,
+					farCR := buildMisconfigFAR(workerNode,
 						farparams.MisconfigInvalidPrefixAgent, nil, nil)
 
-					err = APIClient.Create(ctx, farCR2)
+					err := APIClient.Create(ctx, farCR)
 					Expect(err).To(MatchError(ContainSubstring(farparams.InvalidAgentPatternFARMsg)),
 						"FAR CR with invalid agent prefix should be rejected by CRD validation")
 				})
 
-			It("should reject FenceAgentsRemediationTemplate with invalid fence agent name",
+			It("should reject FARTemplate with unsupported fence agent name",
 				reportxml.ID("71220"),
 				Label(labels.ComponentWebhook),
 				func() {
 					By("Creating FARTemplate with unsupported agent (fence_incorrect)")
 
-					fartCR := buildMisconfigFART(farparams.MisconfigFARTName,
+					farTemplateCR := buildMisconfigFARTemplate(farparams.MisconfigFARTemplateName,
 						farparams.MisconfigUnsupportedAgent)
 
-					err := APIClient.Create(ctx, fartCR)
+					err := APIClient.Create(ctx, farTemplateCR)
 					Expect(err).To(MatchError(ContainSubstring(farparams.UnsupportedAgentMsg)),
 						"FARTemplate with unsupported fence agent should be rejected by webhook")
+				})
 
+			It("should reject FARTemplate with agent name missing fence_ prefix",
+				reportxml.ID("71220"),
+				Label(labels.ComponentWebhook),
+				func() {
 					By("Creating FARTemplate with agent name missing fence_ prefix (incorrect_fence)")
 
-					fartCR2 := buildMisconfigFART(farparams.MisconfigFARTName,
+					farTemplateCR := buildMisconfigFARTemplate(farparams.MisconfigFARTemplateName,
 						farparams.MisconfigInvalidPrefixAgent)
 
-					err = APIClient.Create(ctx, fartCR2)
-					Expect(err).To(MatchError(ContainSubstring(farparams.InvalidAgentPatternFARTMsg)),
+					err := APIClient.Create(ctx, farTemplateCR)
+					Expect(err).To(MatchError(ContainSubstring(farparams.InvalidAgentPatternFARTemplateMsg)),
 						"FARTemplate with invalid agent prefix should be rejected by CRD validation")
 				})
 		})
@@ -194,17 +212,17 @@ func cleanupFARCR(name string) {
 	GinkgoHelper()
 
 	helpers.DeleteRemediationCR(
-		context.TODO(), APIClient, farGVK, name, medik8sparams.OperatorNs,
+		context.Background(), APIClient, farGVK, name, medik8sparams.OperatorNs,
 		farparams.DefaultPollInterval, farparams.RemediationCRDeletionTimeout,
 		GinkgoWriter.Printf)
 }
 
-// cleanupFARTCR safely deletes a FenceAgentsRemediationTemplate CR by name.
-func cleanupFARTCR(name string) {
+// cleanupFARTemplateCR safely deletes a FenceAgentsRemediationTemplate CR by name.
+func cleanupFARTemplateCR(name string) {
 	GinkgoHelper()
 
 	helpers.DeleteRemediationCR(
-		context.TODO(), APIClient, fartGVK, name, medik8sparams.OperatorNs,
+		context.Background(), APIClient, farTemplateGVK, name, medik8sparams.OperatorNs,
 		farparams.DefaultPollInterval, farparams.RemediationCRDeletionTimeout,
 		GinkgoWriter.Printf)
 }
@@ -247,8 +265,7 @@ func findMessageInFARControllerLogs(message string, logWindow time.Duration) err
 		message, logWindow)
 }
 
-// misconfigSharedParams returns the default IPMI shared parameters matching the
-// Python template (fence-agents-remediation.yaml).
+// misconfigSharedParams returns the default IPMI shared parameters.
 func misconfigSharedParams() map[string]interface{} {
 	return map[string]interface{}{
 		"--action":   "reboot",
@@ -259,9 +276,9 @@ func misconfigSharedParams() map[string]interface{} {
 	}
 }
 
-// buildMisconfigFAR builds a FenceAgentsRemediation CR matching the Python
-// template (fence-agents-remediation.yaml). sharedOverrides lets individual
-// tests replace specific shared parameters (e.g. "--action": "status").
+// buildMisconfigFAR builds a FenceAgentsRemediation CR for negative tests.
+// sharedOverrides lets individual tests replace specific shared parameters
+// (e.g. "--action": "status").
 func buildMisconfigFAR(
 	name, agent string,
 	sharedOverrides, nodeParams map[string]interface{},
@@ -301,9 +318,9 @@ func buildMisconfigFAR(
 	}
 }
 
-// buildMisconfigFART builds a FenceAgentsRemediationTemplate CR matching the
-// Python template (fence-agents-remediation-template.yaml).
-func buildMisconfigFART(name, agent string) *unstructured.Unstructured {
+// buildMisconfigFARTemplate builds a FenceAgentsRemediationTemplate CR
+// for negative tests.
+func buildMisconfigFARTemplate(name, agent string) *unstructured.Unstructured {
 	sharedParams := misconfigSharedParams()
 
 	return &unstructured.Unstructured{
@@ -322,7 +339,6 @@ func buildMisconfigFART(name, agent string) *unstructured.Unstructured {
 						"retryinterval": farparams.FARCRRetryInterval,
 						"timeout":       farparams.FARCRTimeout,
 						"nodeparameters": map[string]interface{}{
-							// Placeholder -- webhook rejects before node params are evaluated
 							farparams.NodeIdentifierIPMI: map[string]interface{}{
 								"placeholder-node": "6233",
 							},

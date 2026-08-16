@@ -34,7 +34,7 @@ var farGVK = schema.GroupVersionKind{
 	Kind:    "FenceAgentsRemediation",
 }
 
-var fartGVK = schema.GroupVersionKind{
+var farTemplateGVK = schema.GroupVersionKind{
 	Group:   "fence-agents-remediation.medik8s.io",
 	Version: "v1alpha1",
 	Kind:    "FenceAgentsRemediationTemplate",
@@ -55,7 +55,7 @@ var _ = Describe("FAR Destructive Tests",
 			targetNode      *corev1.Node
 			sharedParams    map[string]interface{}
 			nodeParams      map[string]interface{}
-			currentFARTName string
+			currentFARTemplateName string
 			currentFARName  string
 
 			destructiveSetupDone    bool
@@ -272,10 +272,10 @@ var _ = Describe("FAR Destructive Tests",
 				}
 			}
 
-			if currentFARTName != "" {
-				By("Safety net: deleting FART " + currentFARTName)
-				deleteRemediationCR(ctx, APIClient, fartGVK, currentFARTName)
-				currentFARTName = ""
+			if currentFARTemplateName != "" {
+				By("Safety net: deleting FARTemplate " + currentFARTemplateName)
+				deleteRemediationCR(ctx, APIClient, farTemplateGVK, currentFARTemplateName)
+				currentFARTemplateName = ""
 			}
 
 			if targetNode != nil {
@@ -767,7 +767,7 @@ func buildFARUnstructured(
 }
 
 //nolint:unused // scaffold helper for upcoming destructive test specs
-func buildFARTUnstructured(
+func buildFARTemplateUnstructured(
 	name, agent string,
 	sharedParams, nodeParams map[string]interface{},
 ) *unstructured.Unstructured {

@@ -134,7 +134,7 @@ Creates a FAR CR with a name that does not match any cluster node. Verifies the 
 - **Cluster**: Any topology
 - **Environment**: Connected or disconnected
 - **Standalone**: `ginkgo --label-filter="far && disruption:nondestructive" --focus="node-not-found" ./tests/far-operator/...`
-- **Pass criteria**: FAR CR created successfully, controller log contains "Could not find CR's target node"
+- **Pass criteria**: FAR CR created successfully, controller log contains "couldn't find node matching remediation" (or legacy "Could not find CR's target node")
 
 ### 11. Verify Unsupported Action Rejection ([OCP-66090](https://polarion.engineering.redhat.com/polarion/#/project/OSE/workitem?id=OCP-66090))
 
@@ -146,25 +146,45 @@ Creates a FAR CR with `--action=status` (unsupported). Verifies the webhook reje
 - **Standalone**: `ginkgo --label-filter="far && disruption:nondestructive" --focus="unsupported action" ./tests/far-operator/...`
 - **Pass criteria**: CR creation rejected with error containing "FAR doesn't support any other action than"
 
-### 12. Verify Invalid Fence Agent Rejection in FAR CR ([OCP-71219](https://polarion.engineering.redhat.com/polarion/#/project/OSE/workitem?id=OCP-71219))
+### 12a. Verify Unsupported Fence Agent Rejection in FAR CR ([OCP-71219](https://polarion.engineering.redhat.com/polarion/#/project/OSE/workitem?id=OCP-71219))
 
-Attempts to create FAR CRs with invalid fence agent names. Two sub-cases: (1) agent name matches `fence_` prefix but binary not in container -- webhook rejects with "unsupported fence agent"; (2) agent name missing `fence_` prefix -- CRD schema validation rejects.
-
-- **Operators**: FAR v0.8.0+
-- **Cluster**: Any topology
-- **Environment**: Connected or disconnected
-- **Standalone**: `ginkgo --label-filter="far && disruption:nondestructive" --focus="invalid fence agent name" ./tests/far-operator/...`
-- **Pass criteria**: First sub-case rejected with "unsupported fence agent", second rejected with "spec.agent in body should match"
-
-### 13. Verify Invalid Fence Agent Rejection in FARTemplate ([OCP-71220](https://polarion.engineering.redhat.com/polarion/#/project/OSE/workitem?id=OCP-71220))
-
-Same validation as OCP-71219 but for FenceAgentsRemediationTemplate CRs. Two sub-cases with the same agent names and expected errors, with the CRD path `spec.template.spec.agent` in the validation message.
+Creates a FAR CR with a fence agent name that passes prefix validation but is not installed in the container. Webhook rejects with "unsupported fence agent".
 
 - **Operators**: FAR v0.8.0+
 - **Cluster**: Any topology
 - **Environment**: Connected or disconnected
-- **Standalone**: `ginkgo --label-filter="far && disruption:nondestructive" --focus="FenceAgentsRemediationTemplate with invalid" ./tests/far-operator/...`
-- **Pass criteria**: First sub-case rejected with "unsupported fence agent", second rejected with "spec.template.spec.agent in body should match"
+- **Standalone**: `ginkgo --label-filter="far && disruption:nondestructive" --focus="unsupported fence agent name" ./tests/far-operator/...`
+- **Pass criteria**: CR creation rejected with "unsupported fence agent"
+
+### 12b. Verify Invalid Agent Prefix Rejection in FAR CR ([OCP-71219](https://polarion.engineering.redhat.com/polarion/#/project/OSE/workitem?id=OCP-71219))
+
+Creates a FAR CR with an agent name missing the `fence_` prefix. CRD schema validation rejects the CR.
+
+- **Operators**: FAR v0.8.0+
+- **Cluster**: Any topology
+- **Environment**: Connected or disconnected
+- **Standalone**: `ginkgo --label-filter="far && disruption:nondestructive" --focus="missing fence_ prefix" ./tests/far-operator/...`
+- **Pass criteria**: CR creation rejected with "spec.agent in body should match"
+
+### 13a. Verify Unsupported Fence Agent Rejection in FARTemplate ([OCP-71220](https://polarion.engineering.redhat.com/polarion/#/project/OSE/workitem?id=OCP-71220))
+
+Creates a FARTemplate with a fence agent name that passes prefix validation but is not installed. Webhook rejects with "unsupported fence agent".
+
+- **Operators**: FAR v0.8.0+
+- **Cluster**: Any topology
+- **Environment**: Connected or disconnected
+- **Standalone**: `ginkgo --label-filter="far && disruption:nondestructive" --focus="FARTemplate with unsupported" ./tests/far-operator/...`
+- **Pass criteria**: CR creation rejected with "unsupported fence agent"
+
+### 13b. Verify Invalid Agent Prefix Rejection in FARTemplate ([OCP-71220](https://polarion.engineering.redhat.com/polarion/#/project/OSE/workitem?id=OCP-71220))
+
+Creates a FARTemplate with an agent name missing the `fence_` prefix. CRD schema validation rejects the CR.
+
+- **Operators**: FAR v0.8.0+
+- **Cluster**: Any topology
+- **Environment**: Connected or disconnected
+- **Standalone**: `ginkgo --label-filter="far && disruption:nondestructive" --focus="FARTemplate with agent name missing" ./tests/far-operator/...`
+- **Pass criteria**: CR creation rejected with "spec.template.spec.agent in body should match"
 
 ## Destructive Tests
 
