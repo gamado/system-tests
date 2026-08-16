@@ -428,57 +428,43 @@ func verifyMDRConditionsByType(
 			return findErr
 		}
 
-		condReason, reasonFound, reasonErr := unstructured.NestedString(condMap, "reason")
-		if reasonErr != nil {
-			return fmt.Errorf("condition %q reason field error: %w",
-				exp.conditionType, reasonErr)
-		}
-
-		if !reasonFound {
-			return fmt.Errorf("condition %q reason field not yet written by controller",
-				exp.conditionType)
-		}
-
-		if condReason != exp.reason {
-			return fmt.Errorf("condition %q reason: expected %q, got %q",
-				exp.conditionType, exp.reason, condReason)
+		if err := checkConditionField(condMap, exp.conditionType, "reason", exp.reason); err != nil {
+			return err
 		}
 
 		if exp.status != "" {
-			condStatus, statusFound, statusErr := unstructured.NestedString(condMap, "status")
-			if statusErr != nil {
-				return fmt.Errorf("condition %q status field error: %w",
-					exp.conditionType, statusErr)
-			}
-
-			if !statusFound {
-				return fmt.Errorf("condition %q status field not yet written by controller",
-					exp.conditionType)
-			}
-
-			if condStatus != exp.status {
-				return fmt.Errorf("condition %q status: expected %q, got %q",
-					exp.conditionType, exp.status, condStatus)
+			if err := checkConditionField(condMap, exp.conditionType, "status", exp.status); err != nil {
+				return err
 			}
 		}
 
 		if exp.message != "" {
-			condMessage, msgFound, msgErr := unstructured.NestedString(condMap, "message")
-			if msgErr != nil {
-				return fmt.Errorf("condition %q message field error: %w",
-					exp.conditionType, msgErr)
-			}
-
-			if !msgFound {
-				return fmt.Errorf("condition %q message field not yet written by controller",
-					exp.conditionType)
-			}
-
-			if condMessage != exp.message {
-				return fmt.Errorf("condition %q message: expected %q, got %q",
-					exp.conditionType, exp.message, condMessage)
+			if err := checkConditionField(condMap, exp.conditionType, "message", exp.message); err != nil {
+				return err
 			}
 		}
+	}
+
+	return nil
+}
+
+// checkConditionField validates a single field on a condition map.
+func checkConditionField(
+	condMap map[string]interface{}, condType, field, expected string,
+) error {
+	actual, found, err := unstructured.NestedString(condMap, field)
+	if err != nil {
+		return fmt.Errorf("condition %q %s field error: %w", condType, field, err)
+	}
+
+	if !found {
+		return fmt.Errorf("condition %q %s field not yet written by controller",
+			condType, field)
+	}
+
+	if actual != expected {
+		return fmt.Errorf("condition %q %s: expected %q, got %q",
+			condType, field, expected, actual)
 	}
 
 	return nil

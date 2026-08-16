@@ -125,10 +125,10 @@ reason=KeepsNodeName, message confirms node name is preserved.
 Skipped on cloud platforms (same reason as test 7).
 
 - **Operators**: MDR v0.7.0+
-- **Cluster**: Any topology (MNO or SNO)
+- **Cluster**: Any topology (MNO or SNO), baremetal only
 - **Environment**: Connected or disconnected
-- **Standalone**: `ginkgo --label-filter="mdr" --focus="PermanentNodeDeletionExpected" ./tests/mdr-operator/...`
-- **Pass criteria**: PermanentNodeDeletionExpected status/reason/message match platform (baremetal: False/KeepsNodeName/"...NOT expected..."; cloud: True/NewNodeName/"...expected..."); MDR controller pod running after test
+- **Standalone**: `ginkgo --label-filter="mdr && platform:baremetal" --focus="PermanentNodeDeletionExpected" ./tests/mdr-operator/...`
+- **Pass criteria**: PermanentNodeDeletionExpected status=False reason=KeepsNodeName message="...NOT expected to have a new name"; MDR controller pod running after test
 
 ## Destructive Tests -- NHC-Triggered Remediation
 
