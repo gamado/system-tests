@@ -20,7 +20,6 @@ import (
 	"github.com/rh-ecosystem-edge/eco-goinfra/pkg/reportxml"
 
 	"github.com/medik8s/system-tests/tests/far-operator/internal/farparams"
-	"github.com/medik8s/system-tests/tests/far-operator/internal/farutils"
 	"github.com/medik8s/system-tests/tests/internal/helpers"
 	"github.com/medik8s/system-tests/tests/internal/labels"
 	. "github.com/medik8s/system-tests/tests/internal/medik8sinittools"
@@ -33,10 +32,7 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 		labels.DisruptionNonDestructive, labels.FrequencyWeekly,
 		labels.TierAcceptance, labels.PlatformAny),
 	func() {
-		var (
-			ctx        context.Context
-			workerNode string
-		)
+		var ctx context.Context
 
 		BeforeAll(func() {
 			ctx = context.Background()
@@ -57,30 +53,20 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 				"Test requires %q to not be a real node name -- a matching node would trigger fencing",
 				farparams.MisconfigTestCRName)
 
-			By("Selecting a worker node not running the FAR controller")
-
-			leaderNode, err := farutils.GetActiveFARControllerNode(ctx, APIClient)
-			Expect(err).ToNot(HaveOccurred(), "Failed to get FAR controller leader node")
-
-			selectedNode, err := helpers.SelectWorkerNode(ctx, APIClient, leaderNode)
-			Expect(err).ToNot(HaveOccurred(), "Failed to select worker node")
-			workerNode = selectedNode.Name
-			GinkgoWriter.Printf("Selected worker node: %s (leader on: %s)\n",
-				workerNode, leaderNode)
-
 			By("Pre-cleaning stale FAR CRs from previous interrupted runs")
 
 			cleanupFARCR(farparams.MisconfigTestCRName)
-			cleanupFARCR(workerNode)
+			cleanupFARCR(farparams.WebhookTestCRName)
 			cleanupFARTemplateCR(farparams.MisconfigFARTemplateName)
 
 			DeferCleanup(func() {
+				By("Cleaning up log-test FAR CR")
 				cleanupFARCR(farparams.MisconfigTestCRName)
 
-				if workerNode != "" {
-					cleanupFARCR(workerNode)
-				}
+				By("Cleaning up webhook-test FAR CR")
+				cleanupFARCR(farparams.WebhookTestCRName)
 
+				By("Cleaning up test FARTemplate")
 				cleanupFARTemplateCR(farparams.MisconfigFARTemplateName)
 			})
 		})
@@ -92,8 +78,11 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 				func() {
 					By("Building FAR CR with name that does not match any cluster node")
 
-					farCR := buildMisconfigFAR(farparams.MisconfigTestCRName,
-						farparams.FenceAgentIPMI, nil, nil)
+					farCR := buildFARUnstructured(
+						farparams.MisconfigTestCRName,
+						farparams.FenceAgentIPMI,
+						ipmiSharedParams(nil),
+						ipmiNodeParams(farparams.MisconfigTestCRName))
 
 					logBaseline := time.Now()
 
@@ -130,19 +119,17 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 				})
 		})
 
-		Context("webhook rejection", func() {
+		Context("webhook rejection", Label(labels.ComponentWebhook), func() {
 			It("should reject FAR CR with unsupported action",
 				reportxml.ID("66090"),
-				Label(labels.ComponentWebhook),
 				func() {
-					By("Creating FAR CR with --action=status (unsupported) targeting real worker node")
+					By("Creating FAR CR with --action=status (unsupported)")
 
-					sharedParams := map[string]interface{}{
-						"--action": "status",
-					}
-
-					farCR := buildMisconfigFAR(workerNode,
-						farparams.FenceAgentIPMI, sharedParams, nil)
+					farCR := buildFARUnstructured(
+						farparams.WebhookTestCRName,
+						farparams.FenceAgentIPMI,
+						ipmiSharedParams(map[string]interface{}{"--action": "status"}),
+						ipmiNodeParams(farparams.WebhookTestCRName))
 
 					err := APIClient.Create(ctx, farCR)
 					Expect(err).To(MatchError(ContainSubstring(farparams.UnsupportedActionMsg)),
@@ -151,12 +138,14 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 
 			It("should reject FAR CR with unsupported fence agent name",
 				reportxml.ID("71219"),
-				Label(labels.ComponentWebhook),
 				func() {
 					By("Creating FAR CR with unsupported agent (fence_incorrect)")
 
-					farCR := buildMisconfigFAR(workerNode,
-						farparams.MisconfigUnsupportedAgent, nil, nil)
+					farCR := buildFARUnstructured(
+						farparams.WebhookTestCRName,
+						farparams.MisconfigUnsupportedAgent,
+						ipmiSharedParams(nil),
+						ipmiNodeParams(farparams.WebhookTestCRName))
 
 					err := APIClient.Create(ctx, farCR)
 					Expect(err).To(MatchError(ContainSubstring(farparams.UnsupportedAgentMsg)),
@@ -165,12 +154,14 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 
 			It("should reject FAR CR with agent name missing fence_ prefix",
 				reportxml.ID("71219"),
-				Label(labels.ComponentWebhook),
 				func() {
 					By("Creating FAR CR with agent name missing fence_ prefix (incorrect_fence)")
 
-					farCR := buildMisconfigFAR(workerNode,
-						farparams.MisconfigInvalidPrefixAgent, nil, nil)
+					farCR := buildFARUnstructured(
+						farparams.WebhookTestCRName,
+						farparams.MisconfigInvalidPrefixAgent,
+						ipmiSharedParams(nil),
+						ipmiNodeParams(farparams.WebhookTestCRName))
 
 					err := APIClient.Create(ctx, farCR)
 					Expect(err).To(MatchError(ContainSubstring(farparams.InvalidAgentPatternFARMsg)),
@@ -179,12 +170,14 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 
 			It("should reject FARTemplate with unsupported fence agent name",
 				reportxml.ID("71220"),
-				Label(labels.ComponentWebhook),
 				func() {
 					By("Creating FARTemplate with unsupported agent (fence_incorrect)")
 
-					farTemplateCR := buildMisconfigFARTemplate(farparams.MisconfigFARTemplateName,
-						farparams.MisconfigUnsupportedAgent)
+					farTemplateCR := buildFARTemplateUnstructured(
+						farparams.MisconfigFARTemplateName,
+						farparams.MisconfigUnsupportedAgent,
+						ipmiSharedParams(nil),
+						ipmiNodeParams("placeholder-node"))
 
 					err := APIClient.Create(ctx, farTemplateCR)
 					Expect(err).To(MatchError(ContainSubstring(farparams.UnsupportedAgentMsg)),
@@ -193,12 +186,14 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 
 			It("should reject FARTemplate with agent name missing fence_ prefix",
 				reportxml.ID("71220"),
-				Label(labels.ComponentWebhook),
 				func() {
 					By("Creating FARTemplate with agent name missing fence_ prefix (incorrect_fence)")
 
-					farTemplateCR := buildMisconfigFARTemplate(farparams.MisconfigFARTemplateName,
-						farparams.MisconfigInvalidPrefixAgent)
+					farTemplateCR := buildFARTemplateUnstructured(
+						farparams.MisconfigFARTemplateName,
+						farparams.MisconfigInvalidPrefixAgent,
+						ipmiSharedParams(nil),
+						ipmiNodeParams("placeholder-node"))
 
 					err := APIClient.Create(ctx, farTemplateCR)
 					Expect(err).To(MatchError(ContainSubstring(farparams.InvalidAgentPatternFARTemplateMsg)),
@@ -265,88 +260,28 @@ func findMessageInFARControllerLogs(message string, logWindow time.Duration) err
 		message, logWindow)
 }
 
-// misconfigSharedParams returns the default IPMI shared parameters.
-func misconfigSharedParams() map[string]interface{} {
-	return map[string]interface{}{
+// ipmiSharedParams returns default IPMI shared parameters with optional overrides.
+func ipmiSharedParams(overrides map[string]interface{}) map[string]interface{} {
+	params := map[string]interface{}{
 		"--action":   "reboot",
 		"--ip":       "192.168.123.1",
 		"--lanplus":  "",
 		"--password": "password",
 		"--username": "admin",
 	}
+
+	for k, v := range overrides {
+		params[k] = v
+	}
+
+	return params
 }
 
-// buildMisconfigFAR builds a FenceAgentsRemediation CR for negative tests.
-// sharedOverrides lets individual tests replace specific shared parameters
-// (e.g. "--action": "status").
-func buildMisconfigFAR(
-	name, agent string,
-	sharedOverrides, nodeParams map[string]interface{},
-) *unstructured.Unstructured {
-	sharedParams := misconfigSharedParams()
-
-	for k, v := range sharedOverrides {
-		sharedParams[k] = v
-	}
-
-	if nodeParams == nil {
-		nodeParams = map[string]interface{}{
-			farparams.NodeIdentifierIPMI: map[string]interface{}{
-				name: "6233",
-			},
-		}
-	}
-
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "fence-agents-remediation.medik8s.io/v1alpha1",
-			"kind":       "FenceAgentsRemediation",
-			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": medik8sparams.OperatorNs,
-			},
-			"spec": map[string]interface{}{
-				"agent":               agent,
-				"retrycount":          farparams.FARCRRetryCount,
-				"retryinterval":       farparams.FARCRRetryInterval,
-				"timeout":             farparams.FARCRTimeout,
-				"remediationStrategy": farparams.FARCRRemediationStrategy,
-				"sharedparameters":    sharedParams,
-				"nodeparameters":      nodeParams,
-			},
-		},
-	}
-}
-
-// buildMisconfigFARTemplate builds a FenceAgentsRemediationTemplate CR
-// for negative tests.
-func buildMisconfigFARTemplate(name, agent string) *unstructured.Unstructured {
-	sharedParams := misconfigSharedParams()
-
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "fence-agents-remediation.medik8s.io/v1alpha1",
-			"kind":       "FenceAgentsRemediationTemplate",
-			"metadata": map[string]interface{}{
-				"name":      name,
-				"namespace": medik8sparams.OperatorNs,
-			},
-			"spec": map[string]interface{}{
-				"template": map[string]interface{}{
-					"spec": map[string]interface{}{
-						"agent":         agent,
-						"retrycount":    farparams.FARCRRetryCount,
-						"retryinterval": farparams.FARCRRetryInterval,
-						"timeout":       farparams.FARCRTimeout,
-						"nodeparameters": map[string]interface{}{
-							farparams.NodeIdentifierIPMI: map[string]interface{}{
-								"placeholder-node": "6233",
-							},
-						},
-						"sharedparameters": sharedParams,
-					},
-				},
-			},
+// ipmiNodeParams returns default IPMI node parameters for the given node name.
+func ipmiNodeParams(nodeName string) map[string]interface{} {
+	return map[string]interface{}{
+		farparams.NodeIdentifierIPMI: map[string]interface{}{
+			nodeName: "6233",
 		},
 	}
 }

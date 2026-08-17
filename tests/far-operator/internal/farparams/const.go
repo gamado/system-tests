@@ -158,6 +158,10 @@ const (
 
 	// MisconfigFARTemplateName is the FARTemplate name used by misconfiguration tests.
 	MisconfigFARTemplateName = "fenceagentsremediationtemplate-test"
+
+	// WebhookTestCRName is the FAR CR name used by webhook rejection tests.
+	// Uses a placeholder (not a real node) since webhook validates agent/action, not node.
+	WebhookTestCRName = "far-webhook-test-node"
 )
 
 // WorkloadTestImage is the container image used for test workload pods.

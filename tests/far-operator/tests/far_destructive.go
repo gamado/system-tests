@@ -47,16 +47,16 @@ var _ = Describe("FAR Destructive Tests",
 		labels.PlatformAWS, labels.FrequencyWeekly),
 	func() {
 		var (
-			ctx             context.Context
-			platform        configv1.PlatformType
-			region          string
-			fenceAgent      string
-			leaderNode      string
-			targetNode      *corev1.Node
-			sharedParams    map[string]interface{}
-			nodeParams      map[string]interface{}
+			ctx                    context.Context
+			platform               configv1.PlatformType
+			region                 string
+			fenceAgent             string
+			leaderNode             string
+			targetNode             *corev1.Node
+			sharedParams           map[string]interface{}
+			nodeParams             map[string]interface{}
 			currentFARTemplateName string
-			currentFARName  string
+			currentFARName         string
 
 			destructiveSetupDone    bool
 			destructiveSetupSkipped bool
@@ -241,7 +241,9 @@ var _ = Describe("FAR Destructive Tests",
 
 				By("Deleting FAR CR " + currentFARName)
 				farNodeName := currentFARName
-				deleteRemediationCR(ctx, APIClient, farGVK, currentFARName)
+				helpers.DeleteRemediationCR(ctx, APIClient, farGVK, currentFARName,
+					medik8sparams.OperatorNs, farparams.DefaultPollInterval,
+					farparams.RemediationCRDeletionTimeout, GinkgoWriter.Printf)
 				currentFARName = ""
 
 				By("Verifying FAR NoSchedule taint removed after CR deletion")
@@ -274,7 +276,9 @@ var _ = Describe("FAR Destructive Tests",
 
 			if currentFARTemplateName != "" {
 				By("Safety net: deleting FARTemplate " + currentFARTemplateName)
-				deleteRemediationCR(ctx, APIClient, farTemplateGVK, currentFARTemplateName)
+				helpers.DeleteRemediationCR(ctx, APIClient, farTemplateGVK, currentFARTemplateName,
+					medik8sparams.OperatorNs, farparams.DefaultPollInterval,
+					farparams.RemediationCRDeletionTimeout, GinkgoWriter.Printf)
 				currentFARTemplateName = ""
 			}
 
@@ -766,7 +770,6 @@ func buildFARUnstructured(
 	}
 }
 
-//nolint:unused // scaffold helper for upcoming destructive test specs
 func buildFARTemplateUnstructured(
 	name, agent string,
 	sharedParams, nodeParams map[string]interface{},
@@ -820,8 +823,9 @@ func createFARCR(
 	ctx context.Context, k8sClient client.Client,
 	farCR *unstructured.Unstructured,
 ) {
-	deleteRemediationCR(ctx, k8sClient, farCR.GroupVersionKind(),
-		farCR.GetName())
+	helpers.DeleteRemediationCR(ctx, k8sClient, farCR.GroupVersionKind(),
+		farCR.GetName(), medik8sparams.OperatorNs, farparams.DefaultPollInterval,
+		farparams.RemediationCRDeletionTimeout, GinkgoWriter.Printf)
 
 	Eventually(func(assertion Gomega) {
 		err := k8sClient.Create(ctx, farCR)
@@ -964,41 +968,4 @@ func removeWorkloadImage(ctx context.Context, nodeName string) {
 
 	GinkgoWriter.Printf("Workload image removed from node %s (output: %s)\n",
 		nodeName, output)
-}
-
-func deleteRemediationCR(
-	ctx context.Context, k8sClient client.Client,
-	gvk schema.GroupVersionKind, name string,
-) {
-	obj := &unstructured.Unstructured{}
-	obj.SetGroupVersionKind(gvk)
-
-	key := client.ObjectKey{Name: name, Namespace: medik8sparams.OperatorNs}
-
-	if waitErr := wait.PollUntilContextTimeout(
-		ctx, farparams.DefaultPollInterval, farparams.RemediationCRDeletionTimeout, true,
-		func(ctx context.Context) (bool, error) {
-			if err := k8sClient.Get(ctx, key, obj); err != nil {
-				if k8serrors.IsNotFound(err) {
-					return true, nil
-				}
-
-				return false, nil
-			}
-
-			if delErr := k8sClient.Delete(ctx, obj); delErr != nil {
-				if k8serrors.IsNotFound(delErr) {
-					return true, nil
-				}
-
-				return false, nil
-			}
-
-			return false, nil
-		},
-	); waitErr != nil {
-		GinkgoWriter.Printf(
-			"Warning: %s %s not fully deleted within %s: %v\n",
-			gvk.Kind, name, farparams.RemediationCRDeletionTimeout, waitErr)
-	}
 }
