@@ -85,22 +85,12 @@ const (
 	// ConditionReasonKeepsNodeName is the reason for baremetal clusters where the node name is preserved.
 	ConditionReasonKeepsNodeName = "MachineDeletionOnBareMetalProviderKeepsNodeName"
 
-	// ConditionReasonNewNodeName is the reason for cloud clusters where the node gets a new name.
-	ConditionReasonNewNodeName = "MachineDeletionOnCloudProviderCausesNewNodeName"
-
 	// ConditionMessageKeepsNodeName is the expected message for baremetal PermanentNodeDeletionExpected.
 	ConditionMessageKeepsNodeName = "Machine will be deleted as part of remediation. " +
 		"This is a BareMetal cluster provider: the new node is NOT expected to have a new name"
 
-	// ConditionMessageNewNodeName is the expected message for cloud PermanentNodeDeletionExpected.
-	ConditionMessageNewNodeName = "Machine will be deleted as part of remediation. " +
-		"This is a Cloud cluster provider: the new node is expected to have a new name"
-
 	// ConditionStatusFalse is the status value "False" for condition checks.
 	ConditionStatusFalse = "False"
-
-	// ConditionStatusTrue is the status value "True" for condition checks.
-	ConditionStatusTrue = "True"
 
 	// NHCTimedOutAnnotationKey is the annotation that signals NHC timed out.
 	NHCTimedOutAnnotationKey = "remediation.medik8s.io/nhc-timed-out"

@@ -215,6 +215,7 @@ var _ = Describe(
 				cleanupMDRCR(controlPlaneNodeName)
 
 				DeferCleanup(func() {
+					By("Safety-net cleanup of control-plane MDR CR")
 					cleanupMDRCR(controlPlaneNodeName)
 				})
 			})

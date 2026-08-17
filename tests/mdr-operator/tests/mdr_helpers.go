@@ -480,7 +480,11 @@ func findMDRConditionByType(
 			continue
 		}
 
-		typeName, _, _ := unstructured.NestedString(condMap, "type")
+		typeName, found, err := unstructured.NestedString(condMap, "type")
+		if err != nil || !found {
+			continue
+		}
+
 		if typeName == condType {
 			return condMap, nil
 		}
