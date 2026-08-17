@@ -128,13 +128,14 @@ are pure API-level.
 
 ### 10. Verify Node-Not-Found Error for Non-Existent CR Name ([OCP-65954](https://polarion.engineering.redhat.com/polarion/#/project/OSE/workitem?id=OCP-65954))
 
-Creates a FAR CR with a name that does not match any cluster node. Verifies the controller logs the node-not-found error.
+Creates a FAR CR with a name that does not match any cluster node. Verifies
+the controller logs the node-not-found error message.
 
 - **Operators**: FAR v0.8.0+
 - **Cluster**: Any topology
 - **Environment**: Connected or disconnected
 - **Standalone**: `ginkgo --label-filter="far && disruption:nondestructive" --focus="node-not-found" ./tests/far-operator/...`
-- **Pass criteria**: FAR CR created successfully, controller log contains "couldn't find node matching remediation" (or legacy "Could not find CR's target node")
+- **Pass criteria**: FAR CR created successfully; controller log contains node-not-found message
 
 ### 11. Verify Unsupported Action Rejection ([OCP-66090](https://polarion.engineering.redhat.com/polarion/#/project/OSE/workitem?id=OCP-66090))
 

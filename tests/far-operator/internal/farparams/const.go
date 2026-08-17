@@ -124,13 +124,8 @@ const (
 	// fence agent credentials in the format expected by SharedSecretName.
 	SharedCredentialsSecretName = "far-test-shared-credentials"
 
-	// NodeNotFoundMsg is the controller log message when a FAR CR name doesn't match any node.
-	// Current source uses this message; older Konflux builds used NodeNotFoundMsgLegacy.
-	NodeNotFoundMsg = "couldn't find node matching remediation"
-
-	// NodeNotFoundMsgLegacy is the old controller log message for node-not-found (pre-v0.8.1).
-	// TODO: remove once all Konflux builds use the current message.
-	NodeNotFoundMsgLegacy = "Could not find CR's target node"
+	// LogSearchTimeout is the Eventually timeout when polling controller logs for a message.
+	LogSearchTimeout = 2 * time.Minute
 
 	// UnsupportedActionMsg is the webhook error when an unsupported action is configured.
 	UnsupportedActionMsg = "FAR doesn't support any other action than"
@@ -143,9 +138,6 @@ const (
 
 	// InvalidAgentPatternFARTemplateMsg is the CRD validation error for FARTemplate agent name not matching fence_ prefix.
 	InvalidAgentPatternFARTemplateMsg = "spec.template.spec.agent in body should match"
-
-	// LogSearchTimeout is the Eventually timeout when polling controller logs for a message.
-	LogSearchTimeout = 2 * time.Minute
 
 	// MisconfigTestCRName is the FAR CR name used by the invalid-name misconfiguration test.
 	MisconfigTestCRName = "non-existing-node"
@@ -166,3 +158,11 @@ const (
 
 // WorkloadTestImage is the container image used for test workload pods.
 var WorkloadTestImage = medik8sparams.WorkloadImage
+
+// NodeNotFoundMsgs contains all known variants of the FAR controller
+// node-not-found log message across versions. The log fetch checks all
+// in a single pass to avoid pod-restart races between separate fetches.
+var NodeNotFoundMsgs = []string{
+	"Could not find CR's target node",
+	"couldn't find node matching remediation",
+}

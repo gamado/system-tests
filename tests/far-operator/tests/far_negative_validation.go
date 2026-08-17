@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -78,13 +77,11 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 				func() {
 					By("Building FAR CR with name that does not match any cluster node")
 
-					farCR := buildFARUnstructured(
+					farCR := buildFARForNegativeTest(
 						farparams.MisconfigTestCRName,
 						farparams.FenceAgentIPMI,
 						ipmiSharedParams(nil),
 						ipmiNodeParams(farparams.MisconfigTestCRName))
-
-					logBaseline := time.Now()
 
 					By("Creating FAR CR")
 
@@ -104,18 +101,11 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 					By("Waiting for node-not-found message in FAR controller logs")
 
 					Eventually(func() error {
-						logWindow := time.Since(logBaseline)
-
-						if err := findMessageInFARControllerLogs(
-							farparams.NodeNotFoundMsg, logWindow); err == nil {
-							return nil
-						}
-
-						return findMessageInFARControllerLogs(
-							farparams.NodeNotFoundMsgLegacy, logWindow)
+						return findAnyMessageInFARControllerLogs(
+							farparams.NodeNotFoundMsgs...)
 					}, farparams.LogSearchTimeout, farparams.DefaultPollInterval).Should(Succeed(),
-						"FAR controller logs should contain %q or %q",
-						farparams.NodeNotFoundMsg, farparams.NodeNotFoundMsgLegacy)
+						"FAR controller logs should contain one of %v",
+						farparams.NodeNotFoundMsgs)
 				})
 		})
 
@@ -123,81 +113,61 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 			It("should reject FAR CR with unsupported action",
 				reportxml.ID("66090"),
 				func() {
-					By("Creating FAR CR with --action=status (unsupported)")
-
-					farCR := buildFARUnstructured(
+					farCR := buildFARForNegativeTest(
 						farparams.WebhookTestCRName,
 						farparams.FenceAgentIPMI,
 						ipmiSharedParams(map[string]interface{}{"--action": "status"}),
 						ipmiNodeParams(farparams.WebhookTestCRName))
 
-					err := APIClient.Create(ctx, farCR)
-					Expect(err).To(MatchError(ContainSubstring(farparams.UnsupportedActionMsg)),
-						"FAR CR with unsupported action should be rejected by webhook")
+					expectAdmissionRejection(ctx, farCR, farparams.UnsupportedActionMsg)
 				})
 
 			It("should reject FAR CR with unsupported fence agent name",
 				reportxml.ID("71219"),
 				func() {
-					By("Creating FAR CR with unsupported agent (fence_incorrect)")
-
-					farCR := buildFARUnstructured(
+					farCR := buildFARForNegativeTest(
 						farparams.WebhookTestCRName,
 						farparams.MisconfigUnsupportedAgent,
 						ipmiSharedParams(nil),
 						ipmiNodeParams(farparams.WebhookTestCRName))
 
-					err := APIClient.Create(ctx, farCR)
-					Expect(err).To(MatchError(ContainSubstring(farparams.UnsupportedAgentMsg)),
-						"FAR CR with unsupported fence agent should be rejected by webhook")
+					expectAdmissionRejection(ctx, farCR, farparams.UnsupportedAgentMsg)
 				})
 
 			It("should reject FAR CR with agent name missing fence_ prefix",
 				reportxml.ID("71219"),
 				func() {
-					By("Creating FAR CR with agent name missing fence_ prefix (incorrect_fence)")
-
-					farCR := buildFARUnstructured(
+					farCR := buildFARForNegativeTest(
 						farparams.WebhookTestCRName,
 						farparams.MisconfigInvalidPrefixAgent,
 						ipmiSharedParams(nil),
 						ipmiNodeParams(farparams.WebhookTestCRName))
 
-					err := APIClient.Create(ctx, farCR)
-					Expect(err).To(MatchError(ContainSubstring(farparams.InvalidAgentPatternFARMsg)),
-						"FAR CR with invalid agent prefix should be rejected by CRD validation")
+					expectAdmissionRejection(ctx, farCR, farparams.InvalidAgentPatternFARMsg)
 				})
 
 			It("should reject FARTemplate with unsupported fence agent name",
 				reportxml.ID("71220"),
 				func() {
-					By("Creating FARTemplate with unsupported agent (fence_incorrect)")
-
 					farTemplateCR := buildFARTemplateUnstructured(
 						farparams.MisconfigFARTemplateName,
 						farparams.MisconfigUnsupportedAgent,
 						ipmiSharedParams(nil),
 						ipmiNodeParams("placeholder-node"))
 
-					err := APIClient.Create(ctx, farTemplateCR)
-					Expect(err).To(MatchError(ContainSubstring(farparams.UnsupportedAgentMsg)),
-						"FARTemplate with unsupported fence agent should be rejected by webhook")
+					expectAdmissionRejection(ctx, farTemplateCR, farparams.UnsupportedAgentMsg)
 				})
 
 			It("should reject FARTemplate with agent name missing fence_ prefix",
 				reportxml.ID("71220"),
 				func() {
-					By("Creating FARTemplate with agent name missing fence_ prefix (incorrect_fence)")
-
 					farTemplateCR := buildFARTemplateUnstructured(
 						farparams.MisconfigFARTemplateName,
 						farparams.MisconfigInvalidPrefixAgent,
 						ipmiSharedParams(nil),
 						ipmiNodeParams("placeholder-node"))
 
-					err := APIClient.Create(ctx, farTemplateCR)
-					Expect(err).To(MatchError(ContainSubstring(farparams.InvalidAgentPatternFARTemplateMsg)),
-						"FARTemplate with invalid agent prefix should be rejected by CRD validation")
+					expectAdmissionRejection(ctx, farTemplateCR, farparams.InvalidAgentPatternFARTemplateMsg)
 				})
 		})
 	})
@@ -222,9 +192,23 @@ func cleanupFARTemplateCR(name string) {
 		GinkgoWriter.Printf)
 }
 
-// findMessageInFARControllerLogs searches all running FAR controller pod logs
-// for the given message within the specified time window.
-func findMessageInFARControllerLogs(message string, logWindow time.Duration) error {
+// expectAdmissionRejection creates the CR and asserts that the API server
+// rejects it with an error containing wantSubstring.
+func expectAdmissionRejection(
+	ctx context.Context, cr *unstructured.Unstructured, wantSubstring string,
+) {
+	GinkgoHelper()
+
+	err := APIClient.Create(ctx, cr)
+	Expect(err).To(MatchError(ContainSubstring(wantSubstring)),
+		"%s %s should be rejected with %q", cr.GetKind(), cr.GetName(), wantSubstring)
+}
+
+// findAnyMessageInFARControllerLogs fetches the full log from all running
+// FAR controller pods, then checks for any of the given messages in a
+// single pass. Uses GetFullLog (no sinceSeconds) to avoid clock-skew
+// issues between the test runner and pod nodes.
+func findAnyMessageInFARControllerLogs(messages ...string) error {
 	farPods, err := pod.List(APIClient, medik8sparams.OperatorNs, metav1.ListOptions{
 		LabelSelector: farparams.OperatorControllerPodLabelSelector,
 	})
@@ -240,24 +224,55 @@ func findMessageInFARControllerLogs(message string, logWindow time.Duration) err
 	var lastLogErr error
 
 	for _, farPod := range runningPods {
-		logStr, logErr := farPod.GetLog(logWindow, farparams.ManagerContainerName)
+		logStr, logErr := farPod.GetFullLog(farparams.ManagerContainerName)
 		if logErr != nil {
 			lastLogErr = fmt.Errorf("pod %s: %w", farPod.Object.Name, logErr)
 
 			continue
 		}
 
-		if strings.Contains(logStr, message) {
-			return nil
+		for _, msg := range messages {
+			if strings.Contains(logStr, msg) {
+				return nil
+			}
 		}
 	}
 
 	if lastLogErr != nil {
-		return fmt.Errorf("message %q not found; last log error: %w", message, lastLogErr)
+		return fmt.Errorf("none of %v found; last log error: %w", messages, lastLogErr)
 	}
 
-	return fmt.Errorf("message %q not found in any FAR controller pod logs (last %s)",
-		message, logWindow)
+	return fmt.Errorf("none of %v found in any FAR controller pod logs",
+		messages)
+}
+
+// buildFARForNegativeTest builds a FAR CR without sharedSecretName.
+// The validating webhook checks that the referenced secret exists, so
+// negative tests that need the CR to pass admission (e.g. OCP-65954)
+// must omit it.
+func buildFARForNegativeTest(
+	name, agent string,
+	sharedParams, nodeParams map[string]interface{},
+) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "fence-agents-remediation.medik8s.io/v1alpha1",
+			"kind":       "FenceAgentsRemediation",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": medik8sparams.OperatorNs,
+			},
+			"spec": map[string]interface{}{
+				"agent":               agent,
+				"sharedparameters":    sharedParams,
+				"nodeparameters":      nodeParams,
+				"retrycount":          farparams.FARCRRetryCount,
+				"retryinterval":       farparams.FARCRRetryInterval,
+				"timeout":             farparams.FARCRTimeout,
+				"remediationStrategy": farparams.FARCRRemediationStrategy,
+			},
+		},
+	}
 }
 
 // ipmiSharedParams returns default IPMI shared parameters with optional overrides.
