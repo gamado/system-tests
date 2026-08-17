@@ -120,4 +120,15 @@ const (
 
 	// ControllerLogWindow is the time window for searching controller logs.
 	ControllerLogWindow = 5 * time.Minute
+
+	// Node role labels (mirrors medik8s/common/pkg/labels)
+
+	// MasterRoleLabel is the old role label for control-plane nodes.
+	MasterRoleLabel = "node-role.kubernetes.io/master"
+
+	// ControlPlaneRoleLabel is the new role label for control-plane nodes.
+	ControlPlaneRoleLabel = "node-role.kubernetes.io/control-plane"
+
+	// WorkerRoleLabel is the role label for worker nodes.
+	WorkerRoleLabel = "node-role.kubernetes.io/worker"
 )

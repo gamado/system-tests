@@ -77,7 +77,7 @@ func buildNHCForMDR(name, mdrtName string) *unstructured.Unstructured {
 		"selector": map[string]interface{}{
 			"matchExpressions": []interface{}{
 				map[string]interface{}{
-					"key":      "node-role.kubernetes.io/worker",
+					"key":      mdrparams.WorkerRoleLabel,
 					"operator": "Exists",
 				},
 			},
@@ -288,7 +288,7 @@ func waitForMDRRemediationComplete(
 			// Worker count restored. Find the replacement node.
 			nodeList := &corev1.NodeList{}
 			if listErr := APIClient.List(ctx, nodeList,
-				client.MatchingLabels{"node-role.kubernetes.io/worker": ""}); listErr != nil {
+				client.MatchingLabels{mdrparams.WorkerRoleLabel: ""}); listErr != nil {
 				return false, nil
 			}
 
@@ -502,13 +502,13 @@ func listControlPlaneNodes(ctx context.Context, k8sClient client.Client) (*corev
 	nodeList := &corev1.NodeList{}
 
 	if err := k8sClient.List(ctx, nodeList,
-		client.MatchingLabels{"node-role.kubernetes.io/master": ""}); err != nil {
+		client.MatchingLabels{mdrparams.MasterRoleLabel: ""}); err != nil {
 		return nil, fmt.Errorf("failed to list master nodes: %w", err)
 	}
 
 	if len(nodeList.Items) == 0 {
 		if err := k8sClient.List(ctx, nodeList,
-			client.MatchingLabels{"node-role.kubernetes.io/control-plane": ""}); err != nil {
+			client.MatchingLabels{mdrparams.ControlPlaneRoleLabel: ""}); err != nil {
 			return nil, fmt.Errorf("failed to list control-plane nodes: %w", err)
 		}
 	}
