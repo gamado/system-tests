@@ -128,7 +128,8 @@ const (
 	// Current source uses this message; older Konflux builds used NodeNotFoundMsgLegacy.
 	NodeNotFoundMsg = "couldn't find node matching remediation"
 
-	// NodeNotFoundMsgLegacy is the old controller log message for node-not-found (pre-v0.9).
+	// NodeNotFoundMsgLegacy is the old controller log message for node-not-found (pre-v0.8.1).
+	// TODO: remove once all Konflux builds use the current message.
 	NodeNotFoundMsgLegacy = "Could not find CR's target node"
 
 	// UnsupportedActionMsg is the webhook error when an unsupported action is configured.
@@ -142,9 +143,6 @@ const (
 
 	// InvalidAgentPatternFARTemplateMsg is the CRD validation error for FARTemplate agent name not matching fence_ prefix.
 	InvalidAgentPatternFARTemplateMsg = "spec.template.spec.agent in body should match"
-
-	// LogSearchWindow is how far back to search controller pod logs for expected messages.
-	LogSearchWindow = 5 * time.Minute
 
 	// LogSearchTimeout is the Eventually timeout when polling controller logs for a message.
 	LogSearchTimeout = 2 * time.Minute
