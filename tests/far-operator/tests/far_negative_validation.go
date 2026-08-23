@@ -113,61 +113,73 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 			It("should reject FAR CR with unsupported action",
 				reportxml.ID("66090"),
 				func() {
-					farCR := buildFARForNegativeTest(
-						farparams.WebhookTestCRName,
-						farparams.FenceAgentIPMI,
-						ipmiSharedParams(map[string]interface{}{"--action": "status"}),
-						ipmiNodeParams(farparams.WebhookTestCRName))
-
-					expectAdmissionRejection(ctx, farCR, farparams.UnsupportedActionMsg)
+					verifyAdmissionRejections(ctx,
+						admissionRejectionCase{
+							desc: "Creating FAR CR with unsupported --action=status",
+							cr: buildFARForNegativeTest(
+								farparams.WebhookTestCRName,
+								farparams.FenceAgentIPMI,
+								ipmiSharedParams(map[string]interface{}{"--action": "status"}),
+								ipmiNodeParams(farparams.WebhookTestCRName)),
+							wantSubstring: farparams.UnsupportedActionMsg,
+						},
+					)
 				})
 
-			It("should reject FAR CR with unsupported fence agent name",
+			// OCP-71219 covers two verifications (unsupported agent + invalid
+			// fence_ prefix) under a single Polarion ID, matching the test plan.
+			// Both are kept in one It block to avoid duplicating the reportxml.ID
+			// -- duplicate IDs cause one Polarion result to overwrite the other.
+			It("should reject FAR CR with unsupported or invalid fence agent name",
 				reportxml.ID("71219"),
 				func() {
-					farCR := buildFARForNegativeTest(
-						farparams.WebhookTestCRName,
-						farparams.MisconfigUnsupportedAgent,
-						ipmiSharedParams(nil),
-						ipmiNodeParams(farparams.WebhookTestCRName))
-
-					expectAdmissionRejection(ctx, farCR, farparams.UnsupportedAgentMsg)
+					verifyAdmissionRejections(ctx,
+						admissionRejectionCase{
+							desc: "Creating FAR CR with unsupported fence agent (fence_incorrect)",
+							cr: buildFARForNegativeTest(
+								farparams.WebhookTestCRName,
+								farparams.MisconfigUnsupportedAgent,
+								ipmiSharedParams(nil),
+								ipmiNodeParams(farparams.WebhookTestCRName)),
+							wantSubstring: farparams.UnsupportedAgentMsg,
+						},
+						admissionRejectionCase{
+							desc: "Creating FAR CR with agent name missing fence_ prefix (incorrect_fence)",
+							cr: buildFARForNegativeTest(
+								farparams.WebhookTestCRName,
+								farparams.MisconfigInvalidPrefixAgent,
+								ipmiSharedParams(nil),
+								ipmiNodeParams(farparams.WebhookTestCRName)),
+							wantSubstring: farparams.InvalidAgentPatternFARMsg,
+						},
+					)
 				})
 
-			It("should reject FAR CR with agent name missing fence_ prefix",
-				reportxml.ID("71219"),
-				func() {
-					farCR := buildFARForNegativeTest(
-						farparams.WebhookTestCRName,
-						farparams.MisconfigInvalidPrefixAgent,
-						ipmiSharedParams(nil),
-						ipmiNodeParams(farparams.WebhookTestCRName))
-
-					expectAdmissionRejection(ctx, farCR, farparams.InvalidAgentPatternFARMsg)
-				})
-
-			It("should reject FARTemplate with unsupported fence agent name",
+			// OCP-71220 covers the same two verifications for FARTemplate under a
+			// single Polarion ID (see the OCP-71219 note above).
+			It("should reject FARTemplate with unsupported or invalid fence agent name",
 				reportxml.ID("71220"),
 				func() {
-					farTemplateCR := buildFARTemplateUnstructured(
-						farparams.MisconfigFARTemplateName,
-						farparams.MisconfigUnsupportedAgent,
-						ipmiSharedParams(nil),
-						ipmiNodeParams("placeholder-node"))
-
-					expectAdmissionRejection(ctx, farTemplateCR, farparams.UnsupportedAgentMsg)
-				})
-
-			It("should reject FARTemplate with agent name missing fence_ prefix",
-				reportxml.ID("71220"),
-				func() {
-					farTemplateCR := buildFARTemplateUnstructured(
-						farparams.MisconfigFARTemplateName,
-						farparams.MisconfigInvalidPrefixAgent,
-						ipmiSharedParams(nil),
-						ipmiNodeParams("placeholder-node"))
-
-					expectAdmissionRejection(ctx, farTemplateCR, farparams.InvalidAgentPatternFARTemplateMsg)
+					verifyAdmissionRejections(ctx,
+						admissionRejectionCase{
+							desc: "Creating FARTemplate with unsupported fence agent (fence_incorrect)",
+							cr: buildFARTemplateUnstructured(
+								farparams.MisconfigFARTemplateName,
+								farparams.MisconfigUnsupportedAgent,
+								ipmiSharedParams(nil),
+								ipmiNodeParams(farparams.PlaceholderNodeName)),
+							wantSubstring: farparams.UnsupportedAgentMsg,
+						},
+						admissionRejectionCase{
+							desc: "Creating FARTemplate with agent name missing fence_ prefix (incorrect_fence)",
+							cr: buildFARTemplateUnstructured(
+								farparams.MisconfigFARTemplateName,
+								farparams.MisconfigInvalidPrefixAgent,
+								ipmiSharedParams(nil),
+								ipmiNodeParams(farparams.PlaceholderNodeName)),
+							wantSubstring: farparams.InvalidAgentPatternFARTemplateMsg,
+						},
+					)
 				})
 		})
 	})
@@ -192,16 +204,40 @@ func cleanupFARTemplateCR(name string) {
 		GinkgoWriter.Printf)
 }
 
-// expectAdmissionRejection creates the CR and asserts that the API server
-// rejects it with an error containing wantSubstring.
-func expectAdmissionRejection(
-	ctx context.Context, cr *unstructured.Unstructured, wantSubstring string,
-) {
+// admissionRejectionCase is one create-and-expect-rejection sub-case that
+// belongs to a larger Polarion test case with multiple verification steps.
+type admissionRejectionCase struct {
+	desc          string
+	cr            *unstructured.Unstructured
+	wantSubstring string
+}
+
+// verifyAdmissionRejections runs every sub-case -- creating each CR and
+// asserting the API server rejects it with the expected message -- collecting
+// all failures so every sub-case executes even if an earlier one fails. The
+// sub-cases share one It block / reportxml.ID because the Polarion test plan
+// defines them as a single test case with multiple verification steps.
+func verifyAdmissionRejections(ctx context.Context, cases ...admissionRejectionCase) {
 	GinkgoHelper()
 
-	err := APIClient.Create(ctx, cr)
-	Expect(err).To(MatchError(ContainSubstring(wantSubstring)),
-		"%s %s should be rejected with %q", cr.GetKind(), cr.GetName(), wantSubstring)
+	var failures []string
+
+	for _, tc := range cases {
+		By(tc.desc)
+
+		err := APIClient.Create(ctx, tc.cr)
+
+		matched, matchErr := MatchError(ContainSubstring(tc.wantSubstring)).Match(err)
+		if matchErr != nil || !matched {
+			failures = append(failures,
+				fmt.Sprintf("%s: expected error containing %q, got: %v",
+					tc.desc, tc.wantSubstring, err))
+		}
+	}
+
+	if len(failures) > 0 {
+		Fail("admission rejection failures:\n- " + strings.Join(failures, "\n- "))
+	}
 }
 
 // findAnyMessageInFARControllerLogs fetches the full log from all running
@@ -296,7 +332,7 @@ func ipmiSharedParams(overrides map[string]interface{}) map[string]interface{} {
 func ipmiNodeParams(nodeName string) map[string]interface{} {
 	return map[string]interface{}{
 		farparams.NodeIdentifierIPMI: map[string]interface{}{
-			nodeName: "6233",
+			nodeName: farparams.IPMIPortValue,
 		},
 	}
 }

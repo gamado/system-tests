@@ -154,6 +154,13 @@ const (
 	// WebhookTestCRName is the FAR CR name used by webhook rejection tests.
 	// Uses a placeholder (not a real node) since webhook validates agent/action, not node.
 	WebhookTestCRName = "far-webhook-test-node"
+
+	// PlaceholderNodeName is a non-node name used in FARTemplate webhook tests;
+	// the template is rejected on agent validation before any node matching.
+	PlaceholderNodeName = "placeholder-node"
+
+	// IPMIPortValue is a dummy IPMI --ipport value used in negative-test node parameters.
+	IPMIPortValue = "6233"
 )
 
 // WorkloadTestImage is the container image used for test workload pods.
