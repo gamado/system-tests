@@ -94,4 +94,25 @@ const (
 	SchemaReasonTypeMsg = `must be of type string: "integer"`
 	// SchemaBadNameMsg is the API server validation substring for a metadata.name with invalid characters.
 	SchemaBadNameMsg = "must start and end with an alphanumeric character"
+
+	// MinWorkerNodesForMaintenance is the minimum number of schedulable worker nodes
+	// required by the destructive collision tests: one node is put under real
+	// maintenance while at least one other remains available (for cluster health and,
+	// in the name-duplication test, as the distinct target of the rejected second CR).
+	MinWorkerNodesForMaintenance = 2
+
+	// DuplicateNMName is the NodeMaintenance CR name reused by the name-duplication
+	// collision test (OCP-29632); both the first CR and the rejected second CR share it.
+	DuplicateNMName = "node-maintenance-test"
+	// FirstNMName is the first NodeMaintenance CR name in the same-node collision test (OCP-29630).
+	FirstNMName = "first-node-maintenance"
+	// SecondNMName is the rejected second NodeMaintenance CR name in the same-node collision test (OCP-29630).
+	SecondNMName = "second-node-maintenance"
+
+	// CollisionReason is the spec.reason set on NodeMaintenance CRs created by the collision tests.
+	CollisionReason = "system-tests collision validation (RHWA-1251)"
+
+	// NMResourceQualified is the resource.group identifier the API server uses in
+	// AlreadyExists errors for NodeMaintenance CRs (`<resource> "<name>" already exists`).
+	NMResourceQualified = "nodemaintenances.nodemaintenance.medik8s.io"
 )
