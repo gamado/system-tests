@@ -576,17 +576,17 @@ func logMDRControllerState() {
 
 	GinkgoWriter.Printf("=== MDR Controller State (%d pods) ===\n", len(pods))
 
-	for _, p := range pods {
-		phase := p.Object.Status.Phase
+	for _, testPod := range pods {
+		phase := testPod.Object.Status.Phase
 		ready := "not-ready"
 
-		for _, cs := range p.Object.Status.ContainerStatuses {
+		for _, cs := range testPod.Object.Status.ContainerStatuses {
 			if cs.Ready {
 				ready = "ready"
 			}
 		}
 
 		GinkgoWriter.Printf("  %s: phase=%s containers=%s node=%s\n",
-			p.Object.Name, phase, ready, p.Object.Spec.NodeName)
+			testPod.Object.Name, phase, ready, testPod.Object.Spec.NodeName)
 	}
 }

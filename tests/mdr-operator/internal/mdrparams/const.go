@@ -68,7 +68,7 @@ const (
 	// conditions when remediation begins.
 	ConditionReasonRemediationStarted = "RemediationStarted"
 
-	// Condition test constants (RHWA-1249)
+	// Condition test constants (RHWA-1249).
 
 	// ConditionReasonStoppedByNHC is the reason set when NHC timed-out annotation is present.
 	ConditionReasonStoppedByNHC = "RemediationStoppedByNHC"
@@ -111,7 +111,7 @@ const (
 	// ControllerLogWindow is the time window for searching controller logs.
 	ControllerLogWindow = 5 * time.Minute
 
-	// Node role labels (mirrors medik8s/common/pkg/labels)
+	// Node role labels (mirrors medik8s/common/pkg/labels).
 
 	// MasterRoleLabel is the old role label for control-plane nodes.
 	MasterRoleLabel = "node-role.kubernetes.io/master"
