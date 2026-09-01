@@ -222,16 +222,16 @@ func verifyAdmissionRejections(ctx context.Context, cases ...admissionRejectionC
 
 	var failures []string
 
-	for _, tc := range cases {
-		By(tc.desc)
+	for _, testCase := range cases {
+		By(testCase.desc)
 
-		err := APIClient.Create(ctx, tc.cr)
+		err := APIClient.Create(ctx, testCase.cr)
 
-		matched, matchErr := MatchError(ContainSubstring(tc.wantSubstring)).Match(err)
+		matched, matchErr := MatchError(ContainSubstring(testCase.wantSubstring)).Match(err)
 		if matchErr != nil || !matched {
 			failures = append(failures,
 				fmt.Sprintf("%s: expected error containing %q, got: %v",
-					tc.desc, tc.wantSubstring, err))
+					testCase.desc, testCase.wantSubstring, err))
 		}
 	}
 
