@@ -64,9 +64,6 @@ const (
 	// NodeReadyTimeout is how long to wait for a node to become Ready after reboot.
 	NodeReadyTimeout = 10 * time.Minute
 
-	// NodeNotReadyTimeout is how long to wait for a node to become NotReady after kubelet stop.
-	NodeNotReadyTimeout = 5 * time.Minute
-
 	// NodeRebootTimeout is how long to wait for a node reboot to complete.
 	NodeRebootTimeout = 6 * time.Minute
 
@@ -75,6 +72,15 @@ const (
 
 	// FARConditionTimeout is how long to wait for a FAR CR condition to appear.
 	FARConditionTimeout = 2 * time.Minute
+
+	// EventVerifyTimeout is how long to wait for Kubernetes lifecycle events to
+	// appear. Longer than FARConditionTimeout because event delivery lags the CR
+	// condition and the shared, rate-limited API client can throttle event List
+	// calls during the destructive suite.
+	EventVerifyTimeout = 5 * time.Minute
+	// EventVerifyInterval is the poll interval for event verification. Longer than
+	// DefaultPollInterval to reduce List pressure on the shared rate-limited client.
+	EventVerifyInterval = 10 * time.Second
 
 	// RemediationCRDeletionTimeout is how long to wait for a FAR/FARTemplate CR to be fully deleted.
 	RemediationCRDeletionTimeout = 2 * time.Minute
@@ -161,6 +167,24 @@ const (
 
 	// IPMIPortValue is a dummy IPMI --ipport value used in negative-test node parameters.
 	IPMIPortValue = "6233"
+
+	// MinControlPlaneNodes is the minimum Ready CP nodes needed for safe CP remediation.
+	MinControlPlaneNodes = 3
+
+	// CPRebootTimeout is how long to wait for a CP node reboot (slower than worker due to etcd).
+	CPRebootTimeout = 10 * time.Minute
+	// CPNodeReadyTimeout is how long to wait for a CP node to return Ready after reboot.
+	CPNodeReadyTimeout = 12 * time.Minute
+	// EtcdRejoinTimeout is how long to wait for etcd ClusterOperator to recover.
+	EtcdRejoinTimeout = 10 * time.Minute
+
+	// MinWorkersForDestructiveTests is the minimum Ready workers for standard destructive tests.
+	MinWorkersForDestructiveTests = 3
+	// MinWorkersForTwoWorkerTest is the minimum Ready workers for the 2-worker topology test.
+	MinWorkersForTwoWorkerTest = 2
+
+	// TestCordonAnnotation marks nodes cordoned by the test for cleanup identification.
+	TestCordonAnnotation = "system-tests.medik8s.io/cordoned-for-topology-test"
 )
 
 // WorkloadTestImage is the container image used for test workload pods.
