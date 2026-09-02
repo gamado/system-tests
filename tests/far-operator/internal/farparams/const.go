@@ -138,6 +138,12 @@ const (
 	// LogSearchTimeout is the Eventually timeout when polling controller logs for a message.
 	LogSearchTimeout = 2 * time.Minute
 
+	// WebhookReadyTimeout is how long to wait for the FAR admission webhook to become
+	// reachable. deployment readiness does not guarantee the webhook server and its
+	// Service endpoints are serving yet, so the first CR create can fail with
+	// "failed calling webhook ... context deadline exceeded".
+	WebhookReadyTimeout = 2 * time.Minute
+
 	// UnsupportedActionMsg is the webhook error when an unsupported action is configured.
 	UnsupportedActionMsg = "FAR doesn't support any other action than"
 

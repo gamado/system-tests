@@ -44,6 +44,10 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 			Expect(farDeployment.IsReady(medik8sparams.DefaultTimeout)).To(BeTrue(),
 				"FAR deployment is not Ready -- webhook will be unreachable")
 
+			By("Waiting for the FAR admission webhook to be reachable")
+
+			waitForFARWebhookReady(ctx)
+
 			By("Verifying MisconfigTestCRName is not a real cluster node")
 
 			node := &corev1.Node{}
@@ -183,6 +187,35 @@ var _ = Describe("FAR Negative -- Misconfiguration",
 				})
 		})
 	})
+
+// waitForFARWebhookReady blocks until the FAR mutating admission webhook is
+// reachable. deployment.IsReady only confirms the controller pods are Ready;
+// the webhook server and its backing Service endpoints can still lag, so the
+// first CR create races with them and fails with
+// "failed calling webhook ... context deadline exceeded". This probes the
+// webhook with a dry-run create -- which still invokes the webhook but persists
+// nothing -- and retries until the call no longer fails on connectivity.
+func waitForFARWebhookReady(ctx context.Context) {
+	GinkgoHelper()
+
+	probe := buildFARForNegativeTest(
+		"far-webhook-readiness-probe",
+		farparams.FenceAgentIPMI,
+		ipmiSharedParams(nil),
+		ipmiNodeParams("far-webhook-readiness-probe"))
+
+	Eventually(func() error {
+		err := APIClient.Create(ctx, probe, client.DryRunAll)
+		if err != nil && strings.Contains(err.Error(), "failed calling webhook") {
+			return err
+		}
+
+		// Any other outcome (admitted, or rejected on content) means the
+		// webhook endpoint is reachable, which is all we are waiting for.
+		return nil
+	}, farparams.WebhookReadyTimeout, farparams.DefaultPollInterval).Should(Succeed(),
+		"FAR admission webhook did not become reachable")
+}
 
 // cleanupFARCR safely deletes a FenceAgentsRemediation CR by name.
 func cleanupFARCR(name string) {
